@@ -1,0 +1,23 @@
+# New Repo for Project
+# go to ~project folder
+git init
+cat .gitignore 
+git add .
+git commit -m 'first'
+
+### NOT QUITE RIGHT ...
+
+…or create a new repository on the command line
+echo "# LIARG" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/12379Monty/Snorkel.git
+git push -u origin main
+
+
+…or push an existing repository from the command line
+git remote add origin https://github.com/12379Monty/Snorkel.git
+git branch -M main
+git push -u origin main

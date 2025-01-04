@@ -1,0 +1,98 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><title>R: Glimma MD Plot</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="R.css" />
+</head><body>
+
+<table width="100%" summary="page for glMDPlot {Glimma}"><tr><td>glMDPlot {Glimma}</td><td style="text-align: right;">R Documentation</td></tr></table>
+
+<h2>Glimma MD Plot</h2>
+
+<h3>Description</h3>
+
+<p>Draw an interactive MD plot
+</p>
+
+
+<h3>Usage</h3>
+
+<pre>
+glMDPlot(x, ...)
+</pre>
+
+
+<h3>Arguments</h3>
+
+<table summary="R argblock">
+<tr valign="top"><td><code>x</code></td>
+<td>
+<p>the DE object to plot.</p>
+</td></tr>
+<tr valign="top"><td><code>...</code></td>
+<td>
+<p>additional arguments affecting the plots produced. See specific
+methods for detailed arguments.</p>
+</td></tr>
+</table>
+
+
+<h3>Value</h3>
+
+<p>Draws a two-panel interactive MD plot in an html page. The left plot
+shows the log-fold-change vs average expression. The right plot shows the
+expression levels of a particular gene of each sample. Hovering over points
+on left plot will plot expression level for corresponding gene, clicking on
+points will fix the expression plot to gene. Clicking on rows on the table
+has the same effect as clicking on the corresponding gene in the plot.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Shian Su
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code><a href="glMDPlot.default.html">glMDPlot.default</a></code>, <code><a href="glMDPlot.DGELRT.html">glMDPlot.DGELRT</a></code>,
+<code><a href="glMDPlot.DGEExact.html">glMDPlot.DGEExact</a></code>, <code><a href="glMDPlot.MArrayLM.html">glMDPlot.MArrayLM</a></code>,
+<code><a href="glMDPlot.DESeqDataSet.html">glMDPlot.DESeqDataSet</a></code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre>
+library(limma)
+library(edgeR)
+
+data(lymphomaRNAseq)
+x &lt;- lymphomaRNAseq
+
+sel &lt;- rowSums(cpm(x$counts)&gt;0.5)&gt;=3
+x &lt;- x[sel,]
+
+genotype &lt;- relevel(x$samples$group, "Smchd1-null")
+x &lt;- calcNormFactors(x, method="TMM")
+des &lt;- model.matrix(~genotype)
+
+## Apply voom with sample quality weights and fit linear model
+v &lt;- voomWithQualityWeights(x, design=des, normalization="none", plot=FALSE)
+vfit &lt;- lmFit(v,des)
+
+## Apply treat relative to a fold-change of 1.5
+vtfit &lt;- treat(vfit,lfc=log2(1.5))
+vfit &lt;- eBayes(vfit)
+results &lt;- decideTests(vfit,p.value=0.01)
+
+
+glMDPlot(vfit, counts=x$counts, anno=x$genes, groups=genotype, samples=1:7,
+         status=results[,2], main="MD plot: Wild-type vs Smchd1",
+         display.columns=c("Symbols", "GeneID", "GeneName"),
+         folder="Smchd1-Lymphoma")
+
+
+</pre>
+
+<hr /><div style="text-align: center;">[Package <em>Glimma</em> version 1.10.1 <a href="00Index.html">Index</a>]</div>
+</body></html>

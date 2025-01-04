@@ -1,0 +1,8 @@
+rmarkdown
+knitr
+bookdown
+data.table
+plyr
+dplyr
+magrittr
+RColorBrewer

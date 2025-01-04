@@ -1,0 +1,33 @@
+
+
+
+<!-- ######################################################################## -->
+
+
+
+
+
+<!-- ######################################################################## -->
+
+
+
+<!-- ######################################################################## -->
+
+
+*** 
+
+# Abstract
+
+Read in data downloaded from 
+[NCBI/Gene Expression Omnibus Database (GSE112679)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE112679).
+Findings from analysis of these data are reported in
+Cai et al. (2019) [@Cai:2019aa]).  In subsequent scripts, we will analyze these data acxcording to our
+typical pipeline and compare results with those reported in the article.  One question of interest is whether 
+the selection of genes based on prevalence of weighting across repeated cross-validatred elastice net fits 
+provides any performance improvements in external validation datasets.  
+
+<!-- I kind of doubt it -->
+
+
+# Set Analysis Parameters
+ 

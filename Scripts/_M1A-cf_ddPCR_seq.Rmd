@@ -1,0 +1,2578 @@
+---
+title:  "ddPCR"
+date: '`r format(Sys.time(), "%a %b %d", tz="America/Los_Angeles")`'
+always_allow_html: yes
+output:
+  bookdown::html_document2:
+    code_folding: hide
+    code_download: true
+    toc: true
+    toc_depth: 2
+    # does this have an effect
+    fig_caption: yes
+    # this has no effect
+    number_sections: yes
+    # css: ['../../_css/pandoc3.css', '../_css/myMargins.css']
+bibliography: [../../_bibFiles/_Normalization.bib, ../../_bibFiles/_RUV.bib, ../../_bibFiles/_RUVM.bib, ../../_bibFiles/_ddPCR.bib, ../../_bibFiles/_contam.bib, ../../_bibFiles/_LoD.bib, ../../_bibFiles/_AI.bib]
+csl: ../../_csl/cell-numeric.csl
+link-citations: true
+---
+
+`r DT_DATATABLE <- T`
+
+<!-- Blah, Blah, Bklah -->
+
+<!--
+Small extraction from
+/Users/fcollin/Documents/Projects/LIARG/Scripts
+ _M5A-cf_ddPCR_seq.Rmd
+-->
+
+
+
+<style>
+@import url('https://fonts.googleapis.com/css?family=Raleway');
+@import url('https://fonts.googleapis.com/css?family=Oxygen');
+@import url('https://fonts.googleapis.com/css?family=Raleway:bold');
+@import url('https://fonts.googleapis.com/css?family=Oxygen:bold');
+
+.main-container {
+  max-width: 1400px !important;
+}
+
+body{
+  font-family: 'Oxygen', sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+h1,h2,h3,h4 {
+  font-family: 'Raleway', sans-serif;
+}
+
+.container { width: 1400px; }
+
+caption {
+  font-size: 20px;
+  caption-side: top;
+  text-indent: 30px;
+  background-color: lightgrey;
+  color: black;
+  margin-top: 5px;
+}
+
+g-table-intro h4 {
+  text-indent: 0px;
+}
+</style>
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      comment = NA,
+                      warning = FALSE,
+                      error = FALSE,
+                      message = FALSE,
+                      cache = FALSE,
+                      fig.width = 8,
+                      fig.height = 4)
+```
+
+```{r m1a-GlobalOptions, results="hide", include=FALSE, cache=FALSE}
+
+knitr::opts_knit$set(stop_on_error = 2L) #really make it stop
+options(knitr.table.format = 'html')
+
+options(stringsAsFactors=F)
+
+ #knitr::dep_auto()
+
+```
+<!-- ######################################################################## -->
+
+
+```{r m1a-Prelims,  include=FALSE, echo=FALSE, results='hide', message=FALSE} 
+
+FN <- "_M1A-cf_ddPCR_seq"
+if(sum(grepl(FN, list.files()))==0) stop("Check FN")
+
+ suppressMessages(require(rmarkdown))
+ suppressMessages(require(knitr))
+
+ suppressPackageStartupMessages(require(methods))
+ suppressPackageStartupMessages(require(bookdown))
+
+ suppressPackageStartupMessages(require(data.table))
+ options(datatable.fread.datatable=F)
+
+ suppressPackageStartupMessages(require(plyr))
+ suppressPackageStartupMessages(require(dplyr))
+ suppressPackageStartupMessages(require(magrittr))
+
+ # Shortcuts for knitting and rendering while in R session (Invoke interactive R from R/Scripts folder)
+ kk <- function(n='') knitr::knit2html(paste("t", n, sep=''), envir=globalenv(),
+       output=paste(FN,".html", sep=''))
+
+ rr <- function(n='') rmarkdown::render(paste("t", n, sep=''), envir=globalenv(),
+       output_file=paste(FN,".html", sep='')) ##, output_dir='Scripts')
+
+ bb <- function(n='') browseURL(paste(FN,".html", sep=''))
+
+ # The usual shortcuts
+ zz <- function(n='') source(paste("t", n, sep=''))
+
+ WRKDIR <- '..'
+ if(!file.exists(WRKDIR)) stop("WRKDIR ERROR", WRKDIR)
+
+ # Shotcuts for knitting and rendering while in R session
+
+ # file rmarkdown file management options: cache, figures
+ cache_DIR <- file.path(WRKDIR,'Scripts', 'cache/M1A/')
+ suppressMessages(dir.create(cache_DIR, recursive=T))
+ opts_chunk$set(cache.path=cache_DIR)
+
+ figures_DIR <- file.path(WRKDIR,'Scripts', 'figures/M1A/')
+ suppressMessages(dir.create(figures_DIR, recursive=T))
+ opts_chunk$set(fig.path=figures_DIR)
+
+ #tables_DIR <- file.path(WRKDIR,'Scripts', 'tables/M1A/')
+ #suppressMessages(dir.create(table_DIR, recursive=T))
+ #opts_chunk$set(fig.path=table_DIR)
+ 
+ # need a local copy of help_DIR
+ #help_DIR <- file.path(WRKDIR,'Scripts', 'help_files')
+ help_DIR <- file.path('.', 'help_files')
+ suppressMessages(dir.create(help_DIR, recursive=T))
+ 
+ temp_DIR <- file.path(WRKDIR,'Scripts', 'temp_files')
+ suppressMessages(dir.create(temp_DIR, recursive=T))
+
+```
+<!-- ######################################################################## -->
+
+*** 
+
+```{r m1a-utilityFns, echo=FALSE}
+ # Here we define some utility functions
+source('r/utilityFns.r')
+
+```
+
+<!-- ######################################################################## -->
+
+# Inference {-}
+
+* At some point, sometimes from the very beginning, but more wisely after
+absorbing what we can learn from this one dataset, we will want to think
+about making inference to future data.
+
+
+* At that point we need to consider  some statistical framework.
+* Giving the classical concepts a new look, Yu and Kumbier (2018) [@Yu:2018aa] write 
+
+> Artificial intelligence (AI) is intrinsically data-driven.
+> It calls for the application of statistical concepts through 
+> human-machine collaboration during generation of data, development
+> of algorithms, and evaluation of results. This paper discusses how
+> such human-machine collaboration can be approached through the
+> statistical concepts of population, question of interest, representativeness
+> of training data, and scrutiny of results (PQRS).^[
+See mention by [Andrew Gilman](https://statmodeling.stat.columbia.edu/2017/12/07/bin-yu-karl-kumbier-artificial-intelligence-statistic/)].
+
+
+<p><p/>
+* With the data we are studying here, we also need to think of PQRS:
+   - where do the data come from?
+   - what sampling mechanism can we assume to be not too implausible?
+   - what generalizations can we entertain?
+<!-- that are not too far fetched? -->
+
+<p><p/>
+* We have more than one run so that inference to other runs is possible,
+but these other runs would be just like the ones in this data set.
+   - ie. we can make statistical inference to a hypothetical larger (ie. population)
+dataset, or to future datasets of the same sort
+   - beyond the hypothetical population from which the study dataset
+was drawn, there is no statistical inference possible, but generalizability can be
+postulated if there is ground to do so.
+
+
+<br/>
+<br/>
+
+## Parameter Setting {-}
+
+
+```{r set-params}
+
+params <- list(
+
+ # Dorazio
+ Dorazio_2015_supp_dir = "../Refs/Dorazio_2015_supp",
+ Dorazio_dilution_file = "dilutionData.csv",
+ Dorazio_CNV_file = "BioRadData-CNV.csv",
+ Dorazio_geneExpress_file = "geneExpressData.csv",
+ 
+ 
+ analysis_Prefix  = FALSE,
+
+ empty = "Last Spot"
+)
+
+```
+
+```{r m1a-input-params-all, echo = FALSE, results = "asis", eval=T, echo=F}
+
+ # print out original input params
+data.frame(
+param_name=names(params),
+param_value=unlist(params),
+param_class=sapply(params, class), row.names=NULL) %>%
+  knitr::kable(caption="Input Parameters")
+
+```
+
+
+<br/>
+<br/>
+
+# The ddPCR Platform {#ddpcr-platform}
+
+* The results of the simulations show that the binomial model
+does not lead to appropriate estimated standard errors -
+ie. confidence intervals computed based on these SEs do not have
+the correct coverage frequencies.
+   - Return to this later
+
+<br/>
+
+## ddPCR Bibliography  {.tabset}
+
+### Home {-}
+
+<br/>
+<br/>
+
+### New {-}
+
+<p><p/>
+* The first set of ddPCR references listed below  -  
+Basu et al. (2017), Pinheiro et al (2012), Dube et al (2008),
+and Kreutz et al (2011) [@Basu:2017aa;@Pinheiro:2012aa;@Kreutz:2011aa; @Dube:2008aa]  -
+all use the fundamental partitioning statistics 
+as the basis of analyses customized to two problems: 
+   - the estimation of the concentration of a target in solution, and 
+   - the estimation of the ratio of the concentration of
+two analytes in solution.
+
+<p><p/>
+* Dorazio et al. (2015), Burdukiewicz et al. (2016) and Uhlig et al. (2018) 
+[@Dorazio:2015aa; @Burdukiewicz:2016aa; @Uhlig:2018aa]
+extend the framework of partitioning statistics and describe methods which
+support a more comprehensive set of analyses.
+Dorazio et al. (2015) [@Dorazio:2015aa] illustrate the use of the
+GLM methodology for the analysis of ddPCR data to address questions that go beyond
+comparing two concentrations. Example analyses from Dorazio et al. (2015) [@Dorazio:2015aa]
+are included in  Section \@ref(ddpcr-analysis-glm). 
+
+<p><p/>
+* Simulated partitioning in Section \@ref(simg-partg) indicate that the
+estimated uncertainty derived from the partitioning statistics from Basu et al.
+are incorrect, or there is a mismatch between the simulated data and the data to which
+the partitioning statistics apply to.  
+
+<p><p/>
+* Loskyll et al. (2023) [@Loskyll:2023aa] also indicate that the binomial and Poisson
+models may not faithfully capture the variability in qqPCR data.  The paper
+details how to derive statistics which are  more appropriate for modeling the 
+variability in ddPCR data.
+
+<p><p/>
+* Loskyll et al. (2023) [@Loskyll:2023aa]  provide a number of references to
+articles addressing issues relating to the analysis of ddPCR data:
+[@Jacobs:2014aa; @dMIQE:2020aa; @dMIQE:2020ab; @Debski:2016aa; @Majumdar:2015aa; @Jacobs:2014aa]
+
+<p><p/>
+* Chen et al. (2023) [@Chen:2023aa] also point out shortcomings of the use of
+models which assume binomial variability and propose some 
+bootstrap estimates of variability instead.
+
+<p><p/>
+* The European Network of GMO Laboratories (ENGL) technical report
+*Overview and recommendations for the application of digital PCR*
+([@ddPCR_ENGL:2019aa]) is a good reference assembled by a consortium.
+  - See Section 6.4.7  
+**Limit of Detection (LOD), Limit of Quantification (LOQ)**.
+
+<p><p/>
+* Tellinghuisen (2020) [@Tellinghuisen:2020aa] goes through the details of how
+Poisson variability dictates the accuracy of estimates obtained by qPCR and dPCR
+so that at very low concetrations, a higher volume qPCR assay may be a better option.
+
+
+
+<br/>
+<br/>
+
+### First pass {-}
+
+
+<p><p/> 
+* Basu (2017) [@Basu:2017aa], Whale et al (2013) [@Whale:2013aa], 
+Kreutz et al (2011) [@Kreutz:2011aa], Pinheiro et al (2012) [@Pinheiro:2012aa],
+and Dube et al (2008) [@Dube:2008aa] all discuss some statistical 
+aspects of ddPCR data.
+   - Basu's Partitioning Statistics is reproduced in Section \@ref(part-stats).
+   - Dube derives a mathematical framework to calculate the true concentration of 
+molecules from the observed positive reactions in a panel and find the 95% 
+confidence intervals of the true concentrations and the ratio of two concentrations in a CNV experiment using the digital array with multiplex PCR.
+
+
+<p><p/>
+* From BioRad
+   -  [Qx600 Droplet Digital PCR System](https://www.bio-rad.com/sites/default/files/2023-08/Bulletin_3557.pdf)
+      -  Absolute Quant with 0.1% sensitivity = 1/1000 droplets  
+   -  [QX600 AutoDG Droplet Digital PCR System](https://www.bio-rad.com/en-us/product/qx600-autodg-droplet-digital-pcr-system?ID=0d9e49a4-cf92-f9a9-5779-ef412180f1ed)
+
+<p><p/>
+* Pinheiro et al. (2012) [@Pinheiro:2012aa]  is a showcase article written jointly
+by the National Measurement Institute of Australia and Bio-Rad.
+   - Experimental data from independent sets (such as independent gravimetric dilutions) 
+and replicate measurements was combined using the pooled relative standard deviations:
+
+\usepackage{amsmath,xcolor}
+$$\frac{SD_{M_{prec}}}{\bar{M}} = \sqrt{\frac{\left(\frac{SD{M_1}}{M_1}\right)^2(n_1-1)+
+\dotsb + \left(\frac{SD{M_L:1}}{M_L}\right)^2(n_L-1)}{n_1 + n_2 + \dotsb + n_L - L}}$$
+
+   - similartly for CNR (copy number ratio SD)
+   - The relative standard uncertainty of the precision data was then determined
+by dividing the pooled relative standard deviation by the square root of the
+number of data sets as shown in eqs 6 and 7, respectively:
+
+\begin{equation}
+ \frac{u_{M_\text{prec}}}{\bar{M}} = \frac{SD_{M_\text{prec}}}{\bar{M} \sqrt{i}}
+\end{equation}
+
+
+<br/>
+
+* Quan et al (2018) [@Quan:2018aa]
+   -  compares the fundamental concepts behind the quantification of nucleic acids
+by dPCR and quantitative real-time PCR (qPCR).
+   - provides some **detail the underlying statistics of dPCR** and 
+explains how it defines its precision and performance metrics and 
+discuss design decicions relating to droplet size and number.
+   -  discusses hoe to determine whether the theoretical advantages of dPCR over qPCR hold true
+by pursuing studies that directly compare assays implemented with both methods.
+
+
+<p><p/> 
+*  Taylor (BioRad) et al (2017) [@Taylor:2017aa]   
+   - Droplet Digital PCR (ddPCR) and qPCR platforms are directly compared
+for gene expression analysis using low amounts of purified,
+synthetic DNA in well characterized samples under identical reaction conditions. 
+   -  for sample/target combinations with low levels of nucleic acids (Cq ≥ 29) 
+and/or variable amounts of chemical and protein contaminants,
+ddPCR technology will produce more precise and reproducible results
+* main difference ddPCR vs qPCR:
+   - partitioning of the PCR reaction into thousands of individual reaction vessels 
+   - acquisition of data at reaction end point
+<p><p/>
+   - Experimental design
+      - A single reaction mix was for each sample and for 
+all experiments which was split (20 μL each) for data acquisition 
+
+<p><p/>
+*  Stephens et al (2018) [@Stephens:2018aa] 
+   - Describes a Droplet Digital PCR (ddPCR) protocol and a 
+bioinformatic solution for the detection of contamination in patient’s
+samples and derived sequencing data, which are based on the same principle:
+      - detection of alternative alleles for single-nucleotide polymorphisms (SNPs)
+that are homozygous according to the control (germline) sample.
+
+
+<p><p/>
+* Attali et al (2016), Brink et al (2018) [@Attali:2016aa; @Brink:2018aa] 
+   -  Two R packages
+      -  [ddpcr](https://cran.r-project.org/web/packages/ddpcr/vignettes/overview.html)
+      -  [ddPCRclust](https://www.bioconductor.org/packages/release/bioc/html/ddPCRclust.html)  
+<br/>
+<br/>
+
+## Partitioning Statistics {#part-stats .tabset}
+
+Partitioning statistics are the basis of ddPCR data analysis.
+Basu et al. (2017) [@Basu:2017aa] provide a comprehensive introduction to the topic which
+is summarized below.  
+
+
+### Home {-}
+
+<br/>
+<br/>
+
+### PS Fundamentals {#basu}
+
+* In this section we summarize the fundamentals of Partitioning Statistics 
+presented  in Basu et al. (2017) [@Basu:2017aa].
+These remarks are applicable to the context of measuring a single analyte held in solution
+at a fixed concentration.
+
+
+`r CAPTION <-
+paste(   
+ "Principles of digital PCR.  Each sample is 
+partitioned into many independent aliquots or partitions, with each
+containing a few or no target sequence. (Source [@Quan:2018aa])"
+)`
+ 
+```{r m1a-Quan-2018-fig-3, fig.cap = CAPTION,  out.width = "800px", fig.align = 'center', eval=F}
+
+knitr::include_graphics("img/Quan_2018_fig_3.png")
+ 
+``` 
+
+
+<p><p/>
+* Let 
+   - m  = total number of targets in the sample 
+   - C  = sample concentration = $\frac{m}{\text{units of Volume}}$  
+   - n  = number of partitions or droplets  
+   - $V_p$  = partition volume
+   - $V_s$  = sample volume
+   - $\lambda$  = expected number of targets per partition  
+
+***
+
+<p><p/>
+* In digital assays, the number of targets in the sample (**m**)
+is typically less than or on the order of the number of partitions (**n**).
+and there is significant statistical variation in the number 
+of molecules per partition. 
+   - in what follows we asssume the all partitoions have the same size
+which gives rise to the `1/n` term in the equations.
+
+* The **average number of targets per partition** ($\lambda$) depends on 
+the sample concentration (C), the number of partitions (n) and sample volume.
+The following equalities hold:
+
+\begin{equation}
+\lambda = \frac{m}{n}
+(\#eq:lambda-m-n)
+\end{equation}
+
+\begin{equation}
+m = C \cdot V_s
+(\#eq:m-C-Vs)
+\end{equation}
+
+\begin{equation}
+V_p  = V_s/n
+(\#eq:m-C-Vs)
+\end{equation}
+
+where $V_s$ is the sample volume and $V_p$ is the targeted partition volume
+(which will have some variability).
+
+
+$$\lambda = C \cdot V_p$$ 
+
+* Finally, to estimate concentration:
+
+\begin{equation}
+
+C = \frac{\lambda}{V_p}   
+(\#eq:conc-est-1)
+\end{equation} 
+
+
+<p><p/>
+* To get at the distribution of the number targets per partition,
+we note that by definition when partitioning is done at random,
+each target can be assigned to each partition with equal probability
+and the assigments are independent between targets.  
+
+* For a fixed partition, the probability that `k` targets were assigned
+to that partition is given by the binomial distribution with
+`p = 1/n` and `N = m`:
+
+\begin{equation}
+
+p(k) =  \binom{m}{k} \left(\frac{1}{n}\right)^k 
+                       \left(1 - \frac{1}{n}\right)^{m-k} 
+
+
+(\#eq:binomial-1-over-n-m)
+\end{equation}
+
+$$ p(k) = \binom{m}{k} \left(\frac{\lambda}{m}\right)^k 
+                       \left(1 - \frac{\lambda}{m}\right)^{m-k}  $$
+
+The second parametrization is used to emphasize the relationship with the mean
+number of tatgets per droplet, **$\lambda$**, and the total number of targets,  **m**.
+
+
+* The binomial paremeters are `p = 1/n`, which is small, and
+ `N = m`, which is large, so that the binomial distibution
+given by \@ref(eq:binomial-1-over-n-m) is well approximated
+by a Poisson distributoion with parameter
+$\lambda = E(X) = N \cdot p = m/n$:
+
+$$ p(k) = \frac{\lambda^k e^{-\lambda}}{k!} $$
+ 
+with mean and variance both equal to $\lambda$.  
+
+* Let E denote an empty partition^[
+E is also used to denote the proportions of empty partitions]: 
+
+$$E = p(0) = e^{-\lambda}$$
+
+
+So that $\displaystyle \lim_{\lambda \to \infty} E = 0$.
+In other words, quantitation becomes impossible  when $\lambda$ gets
+to be too large.
+
+<p><p/>
+* From $\lambda = -ln(E)$, putting $\lambda \approx m/n$ and
+$E \approx c/n$ where $c$ is the number of observed empty
+partitions, we have:
+
+\begin{equation}
+m = n\lambda = -n \cdot ln(E)     \\
+m \approx n \cdot (ln(n) - ln(c))     \\
+c \ge 1 \Longleftrightarrow m < n \cdot ln(n)
+(\#eq:target-upper-range)
+\end{equation}
+
+<p><p/>
+* In other words, to statistically have at least
+one empty partition, the number of targets 
+must be less than $n \cdot ln(n)$.
+
+* Substituting `-ln(E)` for $\lambda$ in Equation \@ref(eq:conc-est-1) yields this
+result:
+
+\begin{equation}
+ C =  - \frac{ln(E)}{V_p}
+(\#eq:conc-est-2)
+\end{equation} 
+
+
+<br/>
+<br/>
+
+### Sources of Error  {.tabset}
+
+The modeling and analysis of ddPCR data must properly account for
+the known sources of variability:
+
+* variability due to subsampling from the source sample (donor tube, for example)
+   - we can only observe this with replicated subsamplings. ie. draw 
+several aliquots from the source
+   
+<p><p/>
+* variability due to the random allocation of targets to partitions which has 
+two sources of variability:
+   - targets are randomly allocated to a bin or partition 
+   - the bin size may differ from bin to bin
+
+
+
+#### Home {-}
+
+<br/>
+<br/>
+
+#### Subsampling Error  {-} 
+
+
+* Subsampling errors arise in any biological assay (digital or analog),
+which does not analyze the full volume of the sample, but rather a subsample of it, 
+resulting in statistical variation between replicate tests. 
+
+<p><p/>
+* When the measured quantity depends on a number of targets and
+the number is low, a considerable amount of variability can be 
+introduced by subsampling.  
+   - if the measurement is the number of targets, then the
+standard deviation is $\sqrt{m}, $   where m is the expected
+number of targets in the processed subsample.
+   - there is further variability to consider when the biological sample
+is part of a subset collected to make inference to population parameters.  
+
+   
+<p><p/>
+* When subsampling a fraction of a larger sample, the standard deviation of the
+targets per subsample is $\sqrt{m}$.  The normalized measurement uncertainty  due to 
+subsampling is given by the following equation: 
+
+\begin{equation}
+
+u_s = z_c \frac{\sigma_m}{m} = z_c \frac{\sqrt{m}}{m} = \frac{z_c}{\sqrt{m}}
+
+(\#eq:subsampling-error)
+\end{equation}
+
+   - We can estimate the subsampling variability from the estimate for m, if
+subsampling is like selecting targets at random from a large set.
+   - Subsampling variability can also be estimated from replicates of the right 
+sort,  ie.  resample the tube or source
+
+<!-- 
+in more complicated cases SD = sqrt(sum(r^2)/m)
+sum(r^2) ~ m * meanR2
+SD = sqrt(meanR2)
+does not depend on m
+-->
+
+<br/>
+
+#### Partitioning Error {-}
+
+*  In a set of replicate experiments, there is a variance in the number of
+empty partitions E that propagates to a corresponding variance in the 
+calculated concentration, $\lambda$.
+
+
+* $\sigma_E = \sqrt{E(1-E)/n}$
+
+* The normalized uncertainty due to partitioning is given by
+
+\begin{align}
+
+u_p  & =  \frac{\Delta m}{m}     \\
+     & =  \frac{n(\lambda_{max} - \lambda_{min})}{\lambda n} \\
+     & =  \frac{1}{\lambda} ln \left( \frac{E + z_c \sigma_E}{E - z_c \sigma_E}\right)
+
+(\#eq:partitioning-error)
+\end{align}
+
+Note that $\lambda_{max} = -ln(E -z_c\sigma_E).
+
+
+<br/>
+
+#### Partition Volume Error {-}
+
+See Pinheiro et al. (2012) [@Pinheiro:2012aa] for a discussion of partition volumes
+variability.
+   - 1. It's complicated
+   - 2. In the data the were  analyzed, the partition volume variability can be ignored.
+
+
+\begin{equation}
+
+u   = C \sqrt{ (u_p)^2 + \left(\frac{u_{V_d}}{\bar{V_d}}\right)}
+
+(\#eq:part-vol-error)
+\end{equation}
+
+* Here, $\bar{V_d}$ is the mean partition volume and C is a coverage factor 
+between 2.05 to 2.18, which
+*provides a 95% confidence level that the measurement
+falls within the calculated uncertainty*^[
+Should read `95% confidence that the calculated uncertainty covers the
+measurement, or true value being estimated by measurement.].
+
+* As the number of partitions is increased from $10^2$ to $10^5$,
+$u_p$ becomes insignificant, and the expanded uncertainty drops from >10% to about 1%. 
+
+* Beyond this, error bars are limited by uncertainty in the partition volume. 
+
+
+
+`r CAPTION <-
+paste(   
+"Poisson encapsulation statistics (Source [@Basu:2017aa])"
+)`
+ 
+```{r m1a-Basu-2017-fig3, fig.cap = CAPTION,  out.width = "800px", fig.align = 'center', eval=F}
+
+knitr::include_graphics("img/Basu_2017_fig3.png")
+ 
+``` 
+
+
+`r CAPTION <-
+paste(   
+"Subsampling and Partitioning Errors (Source [@Basu:2017aa])"
+)`
+ 
+```{r m1a-Basu-2017-fig4, fig.cap = CAPTION,  out.width = "800px", fig.align = 'center', eval=F}
+
+knitr::include_graphics("img/Basu_2017_fig4.png")
+ 
+``` 
+
+<br/>
+<br/>
+
+## Simulating Partitionings {#simg-partg .tabset}
+
+### Home {-}
+
+<br/>
+<br/>
+
+
+### Background {-}
+
+* The assumed binomial variability is used as a model to explain the variability
+in the occurence of empty partitions, the key measure in ddPCR. 
+
+* It is based on the assumption that targets
+are binned or partitioned at random.  We can simulate this context by distributing
+`m targets` over a unit interval using a uniform distribution to select the target 
+locations on the interval, and overlaying a bin grid over the interval.
+
+<p><p/>
+* Let 
+   - N = 10K - the number of partitions  
+   - $V_s$ = 10K - the sample number of units of volume (same as N for convenience)
+   - Conc = .1, .01, .001  
+   
+<p><p/>
+* In this context, m is fixed and the only variability is in the partitioning
+which we assume either has no volume variability, or varies by 
+v = 5, 10 or 20%
+  - instead of uniform, make the distribution have density
+(this only controls the occurence of volium values +/- v%): 
+
+$$f(x)  = 1 - v/2 + v \cdot x  \text{   for x in [0, 1]}$$
+
+
+<br/>
+<br/>
+
+### No Volume Variability {- .tabset}
+
+
+#### Home {-}
+
+<br/>
+<br/>
+
+`r CONC <- 0.1; N <- 10000`
+
+#### Conc = `r CONC`
+
+```{r m1a-no-vol-var-conc-0p1-example, cache=T, cache.vars='', fig.cap = paste0("No Volume Variability, Conc =", 100*CONC, '%'), fig.height=6, fig.width=8}
+
+ # draw N
+Conc = CONC
+n_pos <- runif(n=N*Conc) * N
+Conc_hist <- hist(n_pos, breaks=seq(from=0, to = N, len = N),main='', plot=F,
+        ylab="Target Count", xlab = "Partition")
+
+ # THIS IS NOT ENOUGH VARIABILITY
+ # n_pos <- runif(n=N*Conc) * N
+
+ # Should incorporate the subsampling variability
+ # N is partition and sample size
+ n_target <- rpois(n=1, lambda = N)
+ n_pos <- runif(n=n_target*Conc) * N
+ Conc_hist <- hist(n_pos, breaks=seq(from=0, to = N, len = N), plot=F)
+
+#empty_ndx <- which(Conc_hist$counts==0)
+#rug(empty_ndx, col="red")
+
+#table(Conc_hist$counts)
+
+
+E_hat <- mean(Conc_hist$counts == 0)
+E_low <- E_hat - 2 * sqrt(E_hat * (1 - E_hat)/N)
+E_hi <- E_hat + 2 * sqrt(E_hat * (1 - E_hat)/N)
+
+lambda_hat <- - log(E_hat)
+lambda_low <- - log(E_hi)
+lambda_hi <- - log(E_low)
+
+M_est <-  - N * log(E_hat)
+
+plot(Conc_hist, main='',  ylab="Target Count", xlab = "Partition (showing first 1K out of 10K",
+    xlim=c(1, 1000))
+
+title(paste0("Simulating Partitioning: N = ", N, " Conc = ", 100*CONC, '%'))
+mtext(side = 3, paste0(expression(hat(lambda)),  ' = (', 
+  round(100*lambda_low,1), ', ', round(100*lambda_hi,1), ')%',
+  "  hat(E) = ", round(100*E_hat, 1), '%'))
+
+```
+
+
+```{r m1a-no-vol-var-conc-0p1-run-sim, cache=T, cache.vars="novolvar_conc_0p1_frm", fig.cap = paste0("No Volume Variability, Conc =", 100*CONC, '%')}
+
+set.seed(101)
+novolvar_conc_0p1_frm <- do.call("rbind", lapply(1:5000,
+function(K)
+{
+ # THIS IS NOT ENOUGH VARIABILITY
+ # n_pos <- runif(n=N*Conc) * N
+
+ # Should incorporate the subsampling variability
+ # N is partition and sample size
+ n_target <- rpois(n=1, lambda = N) 
+ n_pos <- runif(n=n_target*Conc) * N
+ Conc_hist <- hist(n_pos, breaks=seq(from=0, to = N, len = N), plot=F)
+
+
+ #empty_ndx <- which(Conc_hist$counts==0)
+ #rug(empty_ndx, col="red")
+
+ #table(Conc_hist$counts)
+
+ E_hat <- mean(Conc_hist$counts == 0)
+ E_low <- E_hat - 2 * sqrt(E_hat * (1 - E_hat)/N)
+ E_hi <- E_hat + 2 * sqrt(E_hat * (1 - E_hat)/N)
+
+ lambda_hat <- - log(E_hat)
+ lambda_low <- - log(E_hi)
+ lambda_hi <- - log(E_low)
+
+  # Interval according to ddPCR_ENGL_2019
+  n_tot <- length(Conc_hist$counts)
+  n_neg <- sum(Conc_hist$counts == 0)
+  n_pos <- n_tot - n_neg
+  lambda_low2 <- lambda_hat - 2 * sqrt(n_pos/(n_tot*n_neg))
+  lambda_hi2 <- lambda_hat + 2 * sqrt(n_pos/(n_tot*n_neg))
+
+
+ data.frame(sim=K, E_hat = E_hat, E_low, E_hi, lambda_hat, lambda_low, lambda_hi,
+      lambda_low2, lambda_hi2)
+}))
+
+```
+
+```{r m1a-no-vol-var-conc-0p1-plot-sim, cache=T, cache.vars="novolvar_conc_0p1_frm", fig.cap = paste0("No Volume Variability, Conc =", 100*CONC, '%'), fig.heigth=6, fig.width=8}
+
+par(mfrow=c(1,1), mar=c(2, 5, 2, 1),oma=c(2,0,2,0))
+
+with(novolvar_conc_0p1_frm[1:100,],
+{
+plot(1:100, 100*lambda_hat, pch=20, ylim = c(min(100*lambda_low), max(100*lambda_hi)), xlab="")
+segments(x0=1:100, x1=1:100, y0=100*lambda_low, y1=100*lambda_hi)
+abline(h=100*Conc, col='green')
+}
+)
+lambda_coverage_prob <- with(novolvar_conc_0p1_frm,
+mean(lambda_low < Conc & Conc < lambda_hi))
+
+title(paste("CI for Conc (100 of 5000) - Coverage prob =",
+   round(lambda_coverage_prob, 2)))
+
+SKIP_E_HAT <- function() {
+with(novolvar_conc_0p1_frm[1:100,],
+{
+plot(1:100, E_hat, pch=20, ylim = c(min(E_low), max(E_hi)), xlab="")
+segments(x0=1:100, x1=1:100, y0=E_low, y1=E_hi)
+abline(h=1-Conc, col='green')
+}
+)
+E_coverage_prob <- with(novolvar_conc_0p1_frm,
+mean(E_low < (1-Conc) & (1-Conc) < E_hi))
+
+title(paste("CI for Proportion Empty Titrations (100 of 5000) - Coverage prob =",
+   round(E_coverage_prob, 2)))
+}# SKIP_E_HAT
+
+mtext(side=1, outer=T, "Partition No.")
+mtext(side=3, outer=T, paste0("Simulating Partitions N =", N, " Conc =", 100*CONC, '%'))
+
+```
+
+<br/>
+<br/>
+
+`r CONC = 0.001; N = 10000`
+
+#### Conc = `r CONC`
+
+
+```{r m1a-no-vol-var-conc-0p001-example, cache=T, cache.vars='', fig.cap = paste0("No Volume Variability, Conc =", 100*CONC, '%'), fig.height=6, fig.width=8}
+
+ # draw N
+Conc = CONC
+ # THIS IS NOT ENOUGH VARIABILITY
+ # n_pos <- runif(n=N*Conc) * N
+
+ # Should incorporate the subsampling variability
+ # N is partition and sample size
+ n_target <- rpois(n=1, lambda = N)
+ n_pos <- runif(n=n_target*Conc) * N
+ Conc_hist <- hist(n_pos, breaks=seq(from=0, to = N, len = N), plot=F)
+
+
+E_hat <- mean(Conc_hist$counts == 0)
+E_low <- E_hat - 2 * sqrt(E_hat * (1 - E_hat)/N)
+E_hi <- E_hat + 2 * sqrt(E_hat * (1 - E_hat)/N)
+
+lambda_hat <- - log(E_hat)
+lambda_low <- - log(E_hi)
+lambda_hi <- - log(E_low)
+
+M_est <-  - N * log(E_hat)
+
+plot(Conc_hist, main='',  ylab="Target Count", xlab = "Partition",
+    xlim=c(1, 10000))
+
+title(paste0("Simulating Partitioning: N = ", N, " Conc = ", 100*CONC, '%'))
+mtext(side = 3, paste0(expression(hat(lambda)),  ' = (', 
+  round(100*lambda_low,1), ', ', round(100*lambda_hi,1), ')%',
+  "  hat(E) = ", round(100*E_hat, 1), '%'))
+
+```
+
+
+```{r m1a-no-vol-var-conc-0p001-run-sim, cache=T, cache.vars="novolvar_conc_0p001_frm", fig.cap = paste0("No Volume Variability, Conc =", 100*CONC, '%')}
+
+set.seed(101)
+novolvar_conc_0p001_frm <- do.call("rbind", lapply(1:5000,
+function(K)
+{
+ # THIS IS NOT ENOUGH VARIABILITY
+ # n_pos <- runif(n=N*Conc) * N
+
+ # Should incorporate the subsampling variability
+ # N is partition and sample size
+ n_target <- rpois(n=1, lambda = N)
+ n_pos <- runif(n=n_target*Conc) * N
+ Conc_hist <- hist(n_pos, breaks=seq(from=0, to = N, len = N), plot=F)
+
+ #table(Conc_hist$counts)
+
+ E_hat <- mean(Conc_hist$counts == 0)
+ E_low <- E_hat - 2 * sqrt(E_hat * (1 - E_hat)/N)
+ E_hi <- E_hat + 2 * sqrt(E_hat * (1 - E_hat)/N)
+
+ lambda_hat <- - log(E_hat)
+ lambda_low <- - log(E_hi)
+ lambda_hi <- - log(E_low)
+
+  # Interval according to ddPCR_ENGL_2019
+  n_tot <- length(Conc_hist$counts)
+  n_neg <- sum(Conc_hist$counts == 0)
+  n_pos <- n_tot - n_neg
+  lambda_low2 <- lambda_hat - 2 * sqrt(n_pos/(n_tot*n_neg))
+  lambda_hi2 <- lambda_hat + 2 * sqrt(n_pos/(n_tot*n_neg))
+
+
+ data.frame(sim=K, E_hat = E_hat, E_low, E_hi, lambda_hat, lambda_low, lambda_hi,
+      lambda_low2, lambda_hi2)
+}))
+
+```
+
+```{r m1a-no-vol-var-conc-0p001-plot-sim, cache=T, cache.vars="novolvar_conc_0p001_frm", fig.cap = paste("No Volume Variability, Conc =", CONC), fig.heigth=6, fig.width=8}
+
+par(mfrow=c(1,1), mar=c(2, 5, 2, 1),oma=c(2,0,2,0))
+
+with(novolvar_conc_0p001_frm[1:100,],
+{
+plot(1:100, 100*lambda_hat, pch=20, ylim = c(min(100*lambda_low), max(100*lambda_hi)), xlab="")
+segments(x0=1:100, x1=1:100, y0=100*lambda_low, y1=100*lambda_hi)
+abline(h=100*Conc, col='green')
+}
+)
+lambda_coverage_prob <- with(novolvar_conc_0p001_frm,
+mean(lambda_low < Conc & Conc < lambda_hi))
+
+title(paste("CI for Conc (100 of 5000) - Coverage prob =",
+   round(lambda_coverage_prob, 2)))
+
+SKIP_E_HAT <- function() {
+with(novolvar_conc_0p001_frm[1:100,],
+{
+plot(1:100, E_hat, pch=20, ylim = c(min(E_low), max(E_hi)), xlab="")
+segments(x0=1:100, x1=1:100, y0=E_low, y1=E_hi)
+abline(h=1-Conc, col='green')
+}
+)
+E_coverage_prob <- with(novolvar_conc_0p001_frm,
+mean(E_low < (1-Conc) & (1-Conc) < E_hi))
+
+title(paste("Confidence intervals for Proportion Empty Titrations (100 of 5000) - Coverage prob =",
+   round(E_coverage_prob, 2)))
+}# SKIP_E_HAT
+
+mtext(side=1, outer=T, "Partition No.")
+mtext(side=3, outer=T, paste0("Simulating Partitions N =", N, " Conc =", 100*CONC, '%'))
+
+```
+
+<br/>
+<br/>
+
+## ddPCR Data Analysis by GLM {#ddpcr-analysis-glm .tabset}
+
+In this section we carry out data analyses outlined in
+Dorazio et al. (2015) [@Dorazio:2015aa].
+
+### Home {-}
+
+<br/>
+<br/>
+
+### Dilution Data Analysis {- .tabset}
+
+#### Home {-}
+
+<br/>
+<br/>
+
+
+#### Load the data {-}
+
+
+```{r m1a-rd-dorazio-dilution-data, cache=T, cache.vars = "dorazio_dilution_frm"}
+
+dorazio_dilution_frm <- with(params, 
+data.table::fread(file.path(Dorazio_2015_supp_dir, Dorazio_dilution_file)))
+
+dorazio_dilution_frm %<>% 
+dplyr::mutate(concF = paste0("C", 
+   as.numeric(as.factor(conc)))
+ ) %>%
+dplyr::group_by(concF) %>%
+dplyr::mutate(rep = paste0('r', formatC(dplyr::row_number(), width=2, flag='0'))) %>% 
+dplyr::arrange(concF, rep) %>%
+dplyr::relocate(concF, rep) %>% as.data.frame()
+
+dorazio_dilution_frm %<>% 
+dplyr::rename(
+   npos = npositive,
+   ntot = ntotal) %>%
+dplyr::mutate(
+   nneg = ntot - npos
+)
+
+ # also add vol, which is needed later
+ # constant volume (microliters) per droplet (physical constant)
+
+dorazio_dilution_frm %<>% 
+dplyr::mutate(
+  Vp = 0.91 / 1000,   
+  E = nneg / ntot,
+  C = -log(E)/Vp
+)
+
+
+```
+
+Annotate ...
+
+
+```{r m1a-annot-dorazio, cache=F, echo=T}
+
+ ########################################
+ # Annotation 
+ ########################################
+
+ # Option 3
+grail_color <- c("#3B1C52","#94724F","#628592","#666666","#546741","#B73D27",
+               "#D29A22","royalblue4","plum4","maroon4", "turquoise4", "tomato4")
+col_vector <- rev(grail_color)
+
+
+ # Option 2
+suppressPackageStartupMessages(require(RColorBrewer))
+qual_col_pals <- brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector <- unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+col_vector[4] <- 'red'
+col_vector[8] <- 'darkgreen'
+
+ # Option 1
+KellyColors.vec <- c(
+  "#222222", "#F3C300", "#875692", "#F38400", "#A1CAF1",
+  "#BE0032", "#C2B280", "#848482", "#008856", "#E68FAC", "#0067A5",
+  "#F99379", "#604E97", "#F6A600", "#B3446C", "#DCD300", "#882D17",
+  "#8DB600", "#654522", "#E25822", "#2B3D26"
+)
+col_vector <- KellyColors.vec
+
+ # recycle for more levels
+ col_vector <- rep(col_vector, 3)
+
+ Pch_v <- setdiff(1:50, 26:31)
+
+
+ # concF
+concFLegend_vec <- sort(unique(dorazio_dilution_frm$concF))
+concFCol_vec <- col_vector[1:length(concFLegend_vec)]
+names(concFCol_vec) <- concFLegend_vec
+  
+concFPch_vec <- Pch_v[1:length(concFLegend_vec)]
+names(concFPch_vec) <- concFLegend_vec
+
+
+ # rep
+repLegend_vec <- sort(unique(dorazio_dilution_frm$rep))
+repCol_vec <- col_vector[1:length(repLegend_vec)]
+names(repCol_vec) <- repLegend_vec
+  
+repPch_vec <- Pch_v[1:length(repLegend_vec)]
+names(repPch_vec) <- repLegend_vec
+
+
+```
+
+* Unequal slopes indicate that the relationship between
+`npositive` and `ntotal` cannot be reduced to the ratio of the two.
+
+
+```{r m1a-plot-dorazio-dilution, cache=T, cache.vars='', fig.height= 6, fig.width = 8, fig.cap ="Dorazio Dilution Data"}
+
+par(mar=par("mar") + c(0, 0 , 0, 4))
+
+with(dorazio_dilution_frm,
+plot(x = log(ntot), y = log(npos),  log='',
+     col = concFCol_vec[concF],
+     pch = repPch_vec[rep],
+    xaxt = 'n', yaxt = 'n', xlab='ntot', ylab='npos' )
+)
+with(dorazio_dilution_frm,
+{
+axis(side=1, at = pretty(log(ntot)), label = round(exp( pretty(log(ntot))), 0))
+axis(side=2, at = pretty(log(npos)), label = round(exp( pretty(log(npos))), 0))
+})
+
+concF_dil_frm_lst <- split(dorazio_dilution_frm, dorazio_dilution_frm$concF)
+concF_dil_lm_lst <- lapply(concF_dil_frm_lst, function(frm)
+  lm(log(npos) ~  log(ntot), data = frm))
+
+
+for(CC in names(concF_dil_lm_lst)) {
+  dil_lm <- concF_dil_lm_lst[[CC]]
+  abline(dil_lm, col = concFCol_vec[CC])
+}
+
+slopes_vec <- sapply(concF_dil_lm_lst, function(LM) coefficients(LM)[[2]])
+
+old_par =  par(xpd = NA)
+
+legend('topright', inset = c(-.2, 0), title = "ConcF - slope",
+legend = paste0(names(slopes_vec), '=', round(slopes_vec, 1)),
+text.col = concFCol_vec[names(slopes_vec)], bty='n')
+
+par(old_par)
+
+title("Dilution Data from Dorazio et al. (2015) ")
+
+```
+
+<br/>
+<br/>
+
+#### rePlot the data {-}
+
+* Replot the data in the way that reflects the fitted model.
+
+```{r m1a-plot-ddpcr-seq-counts, cache=T, cache.vars='dorazio_byDil_frm', fig.height= 6, fig.width = 8, fig.cap ="Dorazio Dilution Data - Counts: total, pos, neg"}
+
+dorazio_byDil_frm <- dorazio_dilution_frm %>%
+dplyr::group_by(concF) %>%
+dplyr::summarize(
+  Vp = median(Vp),
+  conc = round(median(conc), 2),
+  ntot_med = median(ntot),
+  npos_med = median(npos),
+  nneg_med = median(nneg),
+  E_q1 = round(quantile(100*E, prob=1/4), 2),
+  E_q3 = round(quantile(100*E, prob=3/4), 2),
+  E_cv = (E_q3 - E_q1)/(E_q3 + E_q1),
+  C_q1 = round(quantile(C, prob=1/4), 1),
+  C_q3 = round(quantile(C, prob=3/4), 1),
+  C_cv = (C_q3 - C_q1)/(C_q3 + C_q1),
+  #E_iqr = paste0( E_q1, ', ', E_q3),
+  #C_iqr = paste0( C_q1, ', ', C_q3)
+) %>% as.data.frame()
+
+
+dorazio_byDil_frm %>%
+knitr::kable(
+caption = "Dorazio Dilution Data - Summarized over reps"
+) %>%
+kableExtra::kable_styling(full_width = F)
+  
+
+par(mar=par("mar") + c(0, 0 , 0, 4))
+
+with(dorazio_dilution_frm,
+{
+plot(x = log(conc), y = log(ntot),  log='', ylim=range(log(c(ntot, npos, nneg))),
+     col = 1, ###concFCol_vec[concF],
+     pch = repPch_vec[rep],
+    xaxt = 'n', yaxt = 'n', xlab='conc', ylab='count')
+points(log(conc), log(nneg),
+       col = 2, ###concFCol_vec[concF],
+       pch = repPch_vec[rep]
+      )
+points(log(conc), log(npos),
+       col = 3, ###concFCol_vec[concF],
+       pch = repPch_vec[rep]
+      )
+axis(side=2, at = pretty(log(c(ntot, npos, nneg))), 
+label = round(exp( pretty(log(c(ntot, npos, nneg)))), 0))
+axis(side=1, at = log(unique(conc)), label = round(unique(conc), 1))
+
+}
+)
+
+with(dorazio_byDil_frm, lines(log(conc), log(ntot_med), col = 1, lwd=2))
+with(dorazio_byDil_frm, lines(log(conc), log(nneg_med), col = 2, lwd=2))
+with(dorazio_byDil_frm, lines(log(conc), log(npos_med), col = 3, lwd=2))
+
+old_par =  par(xpd = NA)
+
+legend('topright', inset=c(-.15, 0), legend = c("ntot", "nneg", "npos"), text.col = 1:3,
+bty='n', title="Counts", title.col = 1)
+
+par(old_par)
+
+
+title("Dilution Data from Dorazio et al. (2015) ")
+
+```
+
+<br/>
+<br/>
+
+#### reRePlot the data {-}
+
+* Replot the data in the way that reflects the fitted model.
+   -  only show negative and total counts as posiitive counts
+are at a different level and compress the figure.
+
+
+```{r m1a-rereplot-dorazio-dilution, cache=T, cache.vars='dorazio_byDil_frm', fig.height= 6, fig.width = 8, fig.cap ="Dorazio Dilution Data"}
+
+dorazio_byDil_frm <- dorazio_dilution_frm %>%
+dplyr::group_by(concF) %>%
+dplyr::summarize(
+  Vp = median(Vp),
+  conc = round(median(conc), 2),
+  ntot_med = median(ntot),
+  npos_med = median(npos),
+  nneg_med = median(nneg),
+  E_q1 = round(quantile(100*E, prob=1/4), 2),
+  E_q3 = round(quantile(100*E, prob=3/4), 2),
+  E_cv = round(100*(E_q3 - E_q1)/(E_q3 + E_q1), 3),
+  C_q1 = round(quantile(C, prob=1/4), 1),
+  C_q3 = round(quantile(C, prob=3/4), 1),
+  C_cv = round(100*(C_q3 - C_q1)/(C_q3 + C_q1), 3),
+  #E_iqr = paste0( E_q1, ', ', E_q3),
+  #C_iqr = paste0( C_q1, ', ', C_q3)
+) %>% as.data.frame()
+
+
+dorazio_byDil_frm %>%
+knitr::kable(
+caption = "Dorazio Dilution Data - Summarized over reps"
+) %>%
+kableExtra::kable_styling(full_width = F)
+  
+
+par(mar=par("mar") + c(0, 0 , 0, 4))
+
+with(dorazio_dilution_frm,
+{
+plot(x = log(conc), y = log(ntot),  log='', 
+     #ylim=pmax(c(log(500), 0), range(log(c(ntot, npos, nneg)))),
+     ylim=range(log(c(ntot, nneg))),
+     col = 1, ###concFCol_vec[concF],
+     pch = repPch_vec[rep],
+    xaxt = 'n', yaxt = 'n', xlab='conc', ylab='count')
+points(log(conc), log(nneg),
+       col = 2, ###concFCol_vec[concF],
+       pch = repPch_vec[rep]
+      )
+axis(side=2, at = pretty(log(c(ntot, nneg))), 
+label = round(exp( pretty(log(c(ntot, nneg)))), 0))
+axis(side=1, at = log(unique(conc)), label = round(unique(conc), 1))
+
+}
+)
+
+with(dorazio_byDil_frm, lines(log(conc), log(ntot_med), col = 1, lwd=2))
+with(dorazio_byDil_frm, lines(log(conc), log(nneg_med), col = 2, lwd=2))
+
+old_par =  par(xpd = NA)
+
+legend('topright', inset=c(-.15, 0), legend = c("ntot", "nneg"), text.col = 1:3,
+bty='n', title="Counts", title.col = 1)
+
+par(old_par)
+
+
+title("Dilution Data from Dorazio et al. (2015) ")
+
+```
+
+<br/>
+<br/>
+
+#### cloglog model fit {-}
+
+* The complimentary log-log link:  
+Cloglog regression is an extension of the logistic regression model and is 
+particularly useful when the probability of an event is very small or very large.
+   - used in Dorazio et al.
+
+```{r m1a-dorazio-dilution-glm-fit, cache=T, cache.vars=c('cloglog_fit', "dorazio_dilution_glm_frm")}
+
+cloglog_fit <- glm(cbind(npos, nneg) ~ log(conc), family=binomial(link='cloglog'),
+   offset = log(Vp), data = dorazio_dilution_frm)
+
+summary(cloglog_fit)
+
+  # for manually extracting informantion from fit objects
+beta.mle = cloglog_fit$coefficients
+beta.vcv = vcov(cloglog_fit)
+beta.se = sqrt(diag(beta.vcv))
+alpha = 0.05  # significance level for confidence intervals
+zcrit = qnorm(1-alpha/2)
+beta.lowerCL = beta.mle - zcrit*beta.se
+beta.upperCL = beta.mle + zcrit*beta.se
+deviance = cloglog_fit$deviance
+GOF = 1 - pchisq(deviance, df=nrow(dorazio_dilution_frm)-length(beta.mle))
+
+
+ # Summarize results
+beta.out = cbind(beta.mle, beta.se, beta.lowerCL, beta.upperCL)
+dimnames(beta.out)[2] = list(c('MLE', 'SE', '2.5%', '97.5%'))
+
+if(F)
+print(beta.out)
+
+ # Estimate concentration of each dilution
+X <- with(dorazio_dilution_frm, model.matrix( ~ log(conc)))
+
+X.pred <- unique(X)
+
+lambda.est = rep(NA,dim(X.pred)[1])
+lambda.lowerCL = rep(NA,dim(X.pred)[1])
+lambda.upperCL = rep(NA,dim(X.pred)[1])
+for (i in 1:dim(X.pred)[1]) {
+    Xvec = matrix(X.pred[i,], ncol=1)
+    loglambda.est = t(Xvec) %*% beta.mle
+    loglambda.var = t(Xvec) %*% beta.vcv %*% Xvec
+    lambda.est[i] = exp(loglambda.est)
+    lambda.lowerCL[i] = exp(loglambda.est - zcrit*sqrt(loglambda.var))
+    lambda.upperCL[i] = exp(loglambda.est + zcrit*sqrt(loglambda.var))
+}
+
+data.frame(lambda_est  = lambda.est,  
+           lambda_lcb = lambda.lowerCL,
+           lambda_ucb = lambda.upperCL) %>%
+knitr::kable(
+caption = "cloglog fit estimates"
+) %>%
+kableExtra::kable_styling(full_width = F)
+
+ # Alternatively, use model extraction methods
+
+if(F)
+cloglog_preds <- predict(cloglog_fit, newdata = new_data_frm, type = "response",
+   se.fit = T)
+
+ ### Return to this later
+
+
+```
+
+Residual plot
+
+```{r m1a-cloglog-residuals, cache=T, cache.vars='', fig.height= 6, fig.width = 8, fig.cap ="Dorazio Dilution Data"}
+
+par(mfrow= c(2, 1), mar = c(2, 4, 2, 1), oma=c(2, 0, 2, 4))
+
+with(dorazio_dilution_frm,
+{
+plot(x = log(conc), y = log(ntot),  log='', 
+     #ylim=pmax(c(log(500), 0), range(log(c(ntot, npos, nneg)))),
+     ylim=range(log(c(ntot, nneg))),
+     col = 1, ###concFCol_vec[concF],
+     pch = repPch_vec[rep],
+    xaxt = 'n', yaxt = 'n', xlab='', ylab='count')
+points(log(conc), log(nneg),
+       col = 2, ###concFCol_vec[concF],
+       pch = repPch_vec[rep]
+      )
+axis(side=2, at = pretty(log(c(ntot, nneg))), 
+label = round(exp( pretty(log(c(ntot, nneg)))), 0))
+axis(side=1, at = log(unique(conc)), label = round(unique(conc), 1))
+}
+)
+
+npos_vec <- with(dorazio_dilution_frm, sapply(split(npos, conc), sum))
+nneg_vec <- with(dorazio_dilution_frm, sapply(split(nneg, conc), min))
+with(dorazio_byDil_frm,
+text(log(conc), log(nneg_vec), labels=npos_vec)
+)
+legend('bottom', legend = "npos", bty='n')
+
+with(dorazio_byDil_frm, lines(log(conc), log(ntot_med), col = 1, lwd=2))
+with(dorazio_byDil_frm, lines(log(conc), log(nneg_med), col = 2, lwd=2))
+
+old_par =  par(xpd = NA)
+
+legend('topright', inset=c(-.15, 0), legend = c("ntot", "nneg"), text.col = 1:3,
+bty='n', title="Counts", title.col = 1)
+
+par(old_par)
+
+mtext(side=3, outer = T, "Dilution Data from Dorazio et al. (2015) ")
+
+with(dorazio_dilution_frm,
+{
+plot(x = log(conc), y = residuals(cloglog_fit))
+})
+abline(h=0, col='red')
+title(paste("GOF = ", GOF))
+
+
+```
+
+* A GOF of zero indicates that the model does not fit the data which is seen in the pattern
+of the residuals.
+
+* In this case a one-group-at-a-time analysis may be preferable.
+
+
+
+<br/>
+<br/>
+
+#### optim() model fit {-}
+
+**Come back to this later**
+
+<br/>
+<br/>
+
+### CNV Analysis {-}
+
+**Come back to this later**
+
+<br/>
+<br/>
+
+### Gene Expression Analysis {-}
+
+**Come back to this later**
+
+<br/>
+<br/>
+
+## `ddPCR` package
+
+<br/>
+<br/>
+
+
+## `twoddPCR` package
+
+<br/>
+<br/>
+
+# Appendix 
+
+## Mathematical Results Relating to Binomial Variates 
+
+### Limit of non-detection {-}
+
+If X = 0 we can claim p $le$ 3/n.  This is really a limit of non-detection -
+if we don't detect any error in n cases, can we claim that the limit
+of detection is 3/n?
+
+From HS calculus, or the Stack Exchange:
+
+\begin{equation}
+
+\lim\limits_{n \to \infty} \left( 1 + \frac{x}{n} \right)^n = e^x
+ 
+(\#eq:exp-as-limit)
+\end{equation}
+
+
+   
+1. Assume that we observe N iid  Bernoulli trials each with probability
+of success `p`.  In our example N is the number of fragments belonging to
+the conta estimation set, and `success` is observing a non-hom  fragment.
+Then 
+
+
+\begin{equation}
+P(X=0|N, p) = (1 - p)^N
+(\#eq:prob-zero-success)
+\end{equation}
+
+ 
+The probability, $P(X=0|N, p)$ can be thought of as a likelihood of `p`
+given that X = 0 is observed.  To obtain an $\alpha$ confidence interval
+for `p`, the following must hold:
+
+\begin{equation}
+
+(1 - p)^N = \alpha
+
+(\#eq:low-p-CI)
+\end{equation}
+
+   
+<br/>
+<br/>
+
+
+### Rule of 3 {-}
+
+When the binomial distribution is applicable, the Rule of
+3 comes about this way.
+
+
+Assume that we observe N iid  Bernoulli trials each with probability
+of success `p`.  In our example N is the number of fragments belonging to
+the conta estimation set, and `success` is observing a non-hom  fragment.
+Then 
+
+
+\begin{equation}
+P(X=0|N, p) = (1 - p)^N
+(\#eq:prob-zero-success)
+\end{equation}
+
+ 
+The probability, $P(X=0|N, p)$ can be thought of as a likelihood of `p`
+given that X = 0 is observed.  To obtain an $\alpha$ confidence interval
+for `p`, the following must hold:
+
+\begin{equation}
+
+(1 - p)^N = \alpha
+
+(\#eq:low-p-CI)
+\end{equation}
+
+<br/>
+<br/>
+
+
+
+We are focusing on X = 0 because the set {X = 0} is the identical
+same event as {The sample is not contaminated}.
+
+A one sided confidence interval of level $\alpha$ is given by
+$${p: (1 - p)^n > \alpha}$$
+and solving for $p$ gives
+$$p \le  1 - \alpha^{1/n}$$
+
+By Taylor expansion,
+$$\alpha^{1/n} = 1 + ln(\alpha)/n + [ln(\alpha)]^2/2n^2 + ...$$
+
+Retaining just the linear term,
+$$p \le - ln(\alpha)/n$$
+
+
+In other words when X = 0, $-ln(\alpha)/n$ is an upper bound for 
+p, which we may think of as a (**lower bound for**) Limit of Detection - we can never
+claim a lower p (but detection still needs to be demonstrated).
+
+```{r m1a-rule-of-ln-alpha-over-n,cache=T, cache.vars='',fig.cap="The Rules of -ln(a) over n"}
+
+data.frame(
+  alpha = c(.05, .01, .001), 
+  `-ln(alpha)` = round(-log(c(.05, .01, .001)),2),
+  check.names=F) %>%  t() %>%
+knitr::kable(
+caption = "X=0 UCB for p is -ln(alpha)/n"
+) %>%
+kableExtra::kable_styling(full_width = F)
+
+```
+
+<br/>
+<br/>
+
+## ddPCR -  Pinheiro  et al. (2012)  {.tabset}
+
+Pinheiro et al. (2012) [@Pinheiro:2012aa] evaluate the ddPCR platform.
+The methodology is similar to Basu et al. (2017) [@Basu:2017aa].
+The notation in this article is the following.
+
+### Home {-}
+
+<br/>
+<br/>
+
+
+### Notation
+
+* Fraction of positive partitions $\Leftrightarrow$ sample concentration:
+
+\begin{equation}
+
+M = - ln \left( 1 - \frac{P}{R}\right)
+
+(\#eq:prop-det-conc)
+\end{equation}
+
+where M is the average number of target molecules per partition,
+P is the number of partitions containing amplified product (not empty), 
+and R is the number of partitions or reactions analyzed.
+
+
+* Factors influencing variability:
+   - R - the number of reeactions
+   - the number of template molecules in the assay
+   - partition volume (Vd)
+
+
+
+`r CAPTION <-
+paste(   
+"Schematic showing the ddPCR workflow (Anal. Chem. 2012, 84, 2, 1003-1011)"
+)`
+ 
+```{r m1a-Pinheiro-2012-fig1, fig.cap = CAPTION,  out.width = "800px", fig.align = 'center'}
+
+knitr::include_graphics("img/Pinheiro_2012_Fig1.png")
+ 
+``` 
+
+
+<br/>
+<br/>
+
+### Experimental Design 
+
+
+`r CAPTION <-
+paste(
+"Schematic diagram of experimental design for assessing linearity and precision.(Anal. Chem. 2012, 84, 2, 1003-1011)"
+)`
+
+```{r m1a-Pinheiro-2012-fig2, fig.cap = CAPTION,  out.width = "800px", fig.align = 'center'}
+
+knitr::include_graphics("img/Pinheiro_2012_Fig2.png")
+
+```
+
+* DNA were prepared using a gravimetric protocol to 
+minimize the uncertainty due to pipetting.  
+
+* The ddPCR reagents, except DNA, were premixed and the final reaction mix was prepared gravimetrically by combining the DNA and PCR components (Supporting Information S-1). 
+
+<br/>
+<br/>
+
+### Linearity and Precision
+
+*Linearity and Precision over the Theoretical Dynamic Range of ddPCR Instrument. 
+
+* Three independent **gravimetric serial dilutions** of Lambda DNA were prepared 
+to produce three sets of seven solutions containing an average of
+(based on absorbance measurements)
+   - 26, 105, 409, 1 630, 6 495, 25 700, and 103 000 predicted copies of Lambda DNA 
+per 20 μL ddPCR 
+
+* For two of the serial dilution sets (gravimetric dilution series 2 and 3), 
+eight replicate ddPCRs were prepared from a single eight-channel droplet generator
+cartridge for each of the seven solutions. 
+
+* For gravimetric dilution series 1, 24 replicate ddPCRs were prepared from 
+three eight-channel droplet generator cartridges for each of the seven solutions. 
+
+* The ddPCRs were analyzed using assay 2 under simplex conditions.
+A complete eight channel cartridge of NTC was prepared by adding 1× TE0.1
+buffer in place of DNA template. 
+
+* NTCs showed alow-level background signal of approximately three positive droplets
+per NTC assay, which could possibly be attributed to low-level
+template contamination during the preparation of the reaction mixture.
+
+
+<br/>
+<br/>
+
+#### Comparison of DNA Concentration and Ratio Measurements 
+
+* Using Two Different dPCR Formats under Simplex and Duplex Conditions. 
+
+<br/>
+<br/>
+
+
+# References {#references}
+    
+<p><p/>
+* [google statistics of balls in boxes and bns](https://www.google.com/search?q=statisrtics+of+balls+in+boxes+and+bns&sca_esv=c744cb070de47b7e&rlz=1C5GCEM_en&ei=BGFEZ_PxMsif5NoPkqmNcA&ved=0ahUKEwjzg5CLsveJAxXID1kFHZJUAw4Q4dUDCA8&uact=5&oq=statisrtics+of+balls+in+boxes+and+bns&gs_lp=Egxnd3Mtd2l6LXNlcnAiJXN0YXRpc3J0aWNzIG9mIGJhbGxzIGluIGJveGVzIGFuZCBibnMyCBAAGIAEGKIEMggQABiABBiiBEiEIlCwDViZFHABeACQAQCYAf4BoAHDBqoBBTAuNC4xuAEDyAEA-AEBmAIEoAK0A8ICChAAGLADGNYEGEfCAgoQIRigARjDBBgKmAMA4gMFEgExIECIBgGQBgiSBwMxLjOgB7QW&sclient=gws-wiz-serp)
+
+* [wiki Balls into bins problem](https://en.wikipedia.org/wiki/Balls_into_bins_problem).
+
+<div id="refs"></div>
+
+<br/>
+<br/>
+
+
+```{r , eval=T}
+pander::pander(sessionInfo())
+```
+
+  * WRKDIR = `r normalizePath(WRKDIR)`
+  * FN = `r FN`
+  * Scripts = Scripts
+  * RUN DATE = `r date()`
+
+```{r , echo=FALSE}
+  knit_exit()
+```
+
+############################################################
+## ARCHIVED CODE BELOW {-}
+############################################################
+## A Simple Model for Dilution Series Data {#a-simple-model}
+
+
+<p><p/>
+*  In a dilution/titration series the amount of input material is
+progressively reduced and the impact or effect this has on some output
+is measured.  In the test plate titration, the amount of cancer cfDNA that
+is spiked into non-cancer background is progressively reduced.  
+   - The sample metric that comes the closest to directly measuring cancer cfDNA is
+`TMeF_CR`.
+   - Another metric that comes close to  directly measuring cancer cfDNA
+of `abnormal coverage`.
+   - A less obvious sample metric that could be measuring
+cancer cfDNA is  `binary coverage`.  
+
+* Let `M` stand for a sequencing metric thought to be tracking the amount
+of cancer cfDNA in solution and
+let `I` stand for the amount of cancer cfDNA input in a non-cancer background.
+The simplest plausible model relating a sequencing metric to an input
+amount of cancer cfDNA is the following:
+
+
+\begin{equation}
+Y_R = log(M) = \alpha + \beta \cdot  log(I) + \epsilon    \\
+\text{where } \epsilon \sim (0, \sigma^2)
+(\#eq:regression)
+\end{equation}
+
+* Model \@ref(eq:regression) says that the magnitude of the
+sequencing metric rises smoothly and  proportionally
+to the amount of input cancer cfDNA.
+
+* We use $Y_R$ here to distinguish the regresion model
+from the ANOVA model, where we will use $Y_A$ to denote
+the response.
+
+
+* Note that for the proportionality coefficient in \@ref(eq:regression)
+to be meaningful, $\sigma$ must be reasonably small 
+(if $\left||\beta \right| \ll \sigma$ the regression equation 
+buys very little. 
+
+
+<p><p/>
+* The fit of the model to the data, or the lack of fit, provides a 
+useful way to describe a dilution series:
+   - under optimal assay conditions we should expect a steady rise in
+the sequencing metric to match the rise in input, with little 
+variation around the incline.
+
+
+<p><p/>
+* One of the ways that the data may not fit the model described in
+Equation \@ref(eq:regression) is that the general trend could be in
+agreement with the model, but the variability  may be excessive - ie
+the data are noisy.  
+   - this deviation is captured by the model fit residual error
+or root men squared error, the usual estimator of $\sigma$.
+
+<p><p/>
+* Another way the data may not fit is through systematic deviation -
+there is a relationship between the sequencing metric and the amount 
+cancer cfDNA input, but it is not a simple proportionality
+constant that explains the relationship.
+An analysis of variance model would fit such
+a pattern.  An **analysis of variance** model  explains the
+variability in log(Y) in terms of the input level groups - L1, ..., L6.
+
+\begin{equation}
+log(M) =  L_g + \epsilon      \\
+\text{where } \epsilon \sim (0, \sigma^2)
+(\#eq:anova)
+\end{equation}
+
+where the parameters $L_g$ stand for the expecred sequence metric
+level for the samples with the g'th inpout group.  
+
+<p><p/>
+* As with Model \@ref(eq:regression), $\sigma$ must be smaller than the differences
+between groups for the model to be meaningful.
+
+<p><p/>
+* We can use the difference between the anova fit and the linear fit 
+to obtain a measure of lack of fit for the linear model,
+or **modeling error**.
+
+<br/>
+
+<p><p/>
+For each metric this analysis produces the following diagnostics for each Data_batch:
+
+<p><p/>
+* **Modeling Error (ME)**
+
+\begin{equation}
+ME = \sqrt{\sum_{d=1}^D(\hat{Y_{R_d}} - \hat{Y_{A_d}})^2/D}
+(\#eq:ME)
+\end{equation}
+
+where the mean squared difference is taken over the design points.  The green
+and blue points in the plots below.
+
+<p><p/>
+* **Residual Error (RE)** (rmse)
+   - this is analogous to what is sometimes referred to as the `noise`
+of the system
+   - it is essentially unexplained variability which is taken to be
+random (until we identify some specific sources of systematic variability contributing
+to what today we call noise)
+
+\begin{equation}
+RE = \sqrt{\sum_{t=1}^T(Y_{A_t} - \hat{Y_{A_t}})^2/(T-G)}
+(\#eq:RE)
+\end{equation}
+
+where t is the total number of samples across the G groups.
+
+
+<p><p/>
+* **Signal to Noise Ratio (SNR)**
+
+   -  The slope in Model \@ref(eq:regression) is an indicator of how much the
+metric values change for each unit change of input.  This is analogous to a `signal`.
+
+   - to get a signal to noise ratio indicator, we can take the quotient of
+the estimated slope to the residual variance:
+
+\begin{equation}
+SNR = \frac{\hat{\beta}}{{\hat{\sigma}}}
+(\#eq:SNR)
+\end{equation}
+
+
+where $\hat{\beta}$ is the estimate of parameter $\beta} in
+\@ref{eq:regression}, and $\hat{\sigma}$ is the 
+estimate of the standard deviation of the distribution of $\epsilon$ -
+typically the root mean squared error of the model fit to the data.
+
+<br/>
+<br/>
+
+* **Important Note** In these evaluations  it is important
+to use robust procedures.
+   - TO DO: get robust versions of total_ss, reg_ss and res_ss
+
+
+
+<br/>
+<br/>
+
+## Plate fits {.tabset #example-fits}
+
+* All test plates from the burn-in dataset are analyzed to examine
+the relationship between 4 metrics and the designed dilution levele:
+binary coverage, abnormal coverage, total coverage, abnormal content, TMeP_CR.
+
+
+
+<p><p/>
+* In the figures under the various results tabs below:
+   - the blue points and lines are from the **fitted linear regression models**.
+      - <span style="color:blue;">blue points </span> are 
+$\hat{Y}_{R_d}$ in \@ref(eq:ME) and \@ref(eq:regression).
+   - the green points are from the fitted **fitted ANOVA model**
+      - <span style="color:green;">green points </span> are 
+$\hat{Y}_{A_d}$ in \@ref(eq:ME) and \@ref(eq:anova).
+
+   - **Modeling error**, \@ref(eq:ME),  is the root mean squared difference between the blue
+and the green points.
+   - the **residual error** (also known as **pure error**), \@ref(eq:RE),
+is the  root mean squared residuals from the anova fit,  
+
+
+<p><p/>
+* In the plots, the vertical red lines at input = 5.5 are 95% prediction intervals.
+The blue wings are 95% confidence intervals.
+   - CI $\approx \pm 2 \cdot \frac{\hat{\sigma}}{\sqrt{n}}$^[this is the
+formula for a simple mean.  In a regression contex there is another scaling factor
+which depends in the location of the predicted point from the center of
+the fitting set]
+   - PI $\approx \pm 2 \cdot (\sigma + \frac{\hat{\sigma}}{\sqrt{n}})$ 
+
+<p><p/>
+* **Note on inferential context**. What is the inferential context here?    Statistical
+inference let's us make inference beyond a sample set to an imagined context
+in which either the sample collection is vastly expanded to include more
+sample points, or the measurement exercise is replicated a large number of times.
+   -  we should keep in mind that we cannot make any inference beyond the
+sampled data sampling frame.  If we have only one plate, we cannot make inferences 
+beyond that one plate.
+   - statistical inference is useful in informing us about the expected level of
+reproducibility of the observed results; from that it is up to us to decide
+what actions to take.
+
+<p><p/>
+* Note that some regression diagnostics  are not directly comparable when the response
+is expressed in different units, but SNR values are comparable.
+
+<p><p/>
+* Binary vs Abnormal coverage:
+   - a large fraction of variability in binary coverage is often
+within group variability unrelated to input (or TMeF)
+   - when this variability is shared with abnormal coverage (ie.
+abnornal and binary coverage valuesa are correlated) abnormal coverage
+values can be adjusted to remove this component of variabiliry and thus
+reduce the abnormal coverage variability.
+   - This can be done by regression analysis as described in Section
+\@ref(model-for-coverage).
+   - `abnormal content` is a special case of this sort of adjusted coverage.
+
+<p><p/>
+*  This variability is unwanted in the sense that abnormal
+coverage variability would ideally be solely driven by biological
+variability of interest.
+   - for QC purposes, though, we do watn to track this,
+and any other source of unwanted variability
+
+
+### Home {-}
+
+<br/>
+<br/>
+
+
+<!-- no need
+### Plate Selection {-}
+
+**Plates were not selected - all plates with data are shown**
+-->
+
+```{r m1a-pick-four-plates, cache=T, cache.vars = c("TPD_Plate_vec", "four_TPD_plates", "all_TPD_plates_frm"), include=F, eval=F}
+ ### CLEARE CACH
+
+TPD_Plate_vec <- with(v3a_structure_frm %>% dplyr::filter(TPD),
+unique(Plate))
+
+ # four plates
+set.seed(101)
+four_TPD_plates <- sample(TPD_Plate_vec, size = 4)
+
+
+ # basic info for all test plates with flag for the four selected
+ ##############################
+all_TPD_plates_frm <- conta_seq_frm %>%
+dplyr::filter(Plate %in% TPD_Plate_vec) %>%
+dplyr::select(flowcell_no, flowcell, CCB_no, CCB, ECB_no, ECB,
+   PlateNum, Plate)  %>%
+unique() %>%
+dplyr::mutate(
+  plate_set = ifelse(Plate %in% four_TPD_plates, 1, 2)
+) %>%
+as.data.frame()  %>%
+dplyr::arrange(plate_set, flowcell_no, CCB_no, ECB_no, PlateNum)
+
+
+all_TPD_plates_frm %>%
+knitr::kable(
+caption = "Plate Information"
+) %>%
+kableExtra::kable_styling(full_width = F)
+
+
+
+```
+
+<br/>
+<br/>
+
+
+```{r m1a-examples-bin-abn-tmef, cache=T, cache.vars = "", fig.cap="Example plate fit and Dx", results = "asis", eval=F}
+
+ # in here we need standardize and plot all on a common 
+ # scale in standard units but on each metric's true scale
+ # do the analysis first; plot second
+
+for(JJ in 1:nrow(all_TPD_plates_frm)) {
+  
+ with(all_TPD_plates_frm[JJ,],
+ cat("\n\n### ", ECB_no,'-', PlateNum,  "  {- .tabset}\n")
+ )
+
+  TP <- all_TPD_plates_frm[JJ, "Plate"]
+
+  TP_frm <- conta_seq_frm %>%
+  dplyr::filter(
+     !is.na(abn_cov), 
+     !is.na(bin_cov),
+     TMeF_CR < 0.5) %>%
+  dplyr::filter(Plate == TP,
+                Level %in% paste0("L", 1:6)
+   ) %>%
+   dplyr::mutate(
+     abn_cov = pmax(abn_pos_q05, abn_cov),
+     bin_cov = pmax(bin_pos_q05, bin_cov),
+     abn_content = abn_cov/bin_cov * 1e3
+   )
+  ####################################################
+  # - Before anything, get Metrics mean, sd and values in 
+  # SU (standsrd units)
+  # all of the analyses are on the log scale 
+  TP_frm#   - otherwise we run into problems with negative predictions
+  # - get range from all metrics on SU log scale
+  # - convert to each metric's log scale to specify Ylim.
+  #####################################################
+  METRICS <- c("bin_cov", "abn_cov", "abn_content", "TMeP_CR")
+  
+  metrics_logscale_sum_mtx <- sapply(METRICS, function(MTRC) 
+   {# for MTRC in METRICS
+    # get min and max of MRTC in SUs
+     Mean = mean(log(TP_frm[,MTRC]), na.rm=T)
+     Sd = sd(log(TP_frm[,MTRC]), na.rm=T)
+     min_su = min((log(TP_frm[,MTRC]) - Mean)/Sd, na.rm=T)
+     max_su = max((log(TP_frm[,MTRC]) - Mean)/Sd, na.rm=T)
+     return(c(Mean=Mean, 
+              Sd=Sd, 
+              min_su=min_su, 
+              max_su=max_su
+          ) )
+   })
+
+   # min/max  of min/max across METRICS
+   Min_su <- min(metrics_logscale_sum_mtx["min_su",])
+   Max_su <- max(metrics_logscale_sum_mtx["max_su",])
+
+   # WON'T USE THIS
+   metrics_logscale_sum_frm <- data.frame(t(metrics_logscale_sum_mtx)) %>%
+   dplyr::mutate(
+    Metric = colnames(metrics_logscale_sum_mtx),
+    Ymin = Mean + Sd * Min_su,
+    Ymax = Mean + Sd * Max_su
+   )
+
+  #####################################################
+   tmp <-unique( TP_frm %>%
+   dplyr::select(Plate, flowcell_no, CCB_no, ECB_no, PlateNum))
+
+   mtext3 <- with(tmp,
+     sprintf("Plate = %s - %s,  %s,  %s, Num = %s",
+     Plate, flowcell_no, CCB_no, ECB_no, PlateNum)
+         )
+   
+  # will pass pch and col for well through TP_frm
+
+  par(mfrow = c(2, 2), mar=c(2.5, 2.5, 2, 2.5), oma=c(2,2.5,2,2) )
+
+   # Binary Cov
+   ################################
+   TP_bin_cov_res_frm <- plot_metric_vs_input_f(
+      TP_frm, Metric="bin_cov", 
+      Pch = ep_wellPch_vec[TP_frm$ep_well], 
+      Col = ep_wellCol_vec[TP_frm$ep_well], 
+      Ylim_log_su = c(Min_su, Max_su),
+      axis_4 = T,
+      add_median=T, Legend=F, add_snr=F, Title = '')
+   title("bin_cov")
+   mtext(side=3, outer = T, mtext3)
+
+   with(TP_bin_cov_res_frm, cex = 0.8,
+   legend("topleft", bty='n', cex=0.8, # title = "Binary Coverage",
+   legend = c(
+              paste("Mod. Err =", round(ME, 3)),
+              paste("Res. Err =", round(RE, 3)),
+              paste("beta =", round(slope, 3)),
+              paste("SNR = ", round(SNR, 3))
+           ),
+   ncol = 1)
+   )
+  
+   # Abnormal Cov
+   ################################
+   TP_abn_cov_res_frm <- plot_metric_vs_input_f(
+      TP_frm, Metric="abn_cov", 
+      Pch = ep_wellPch_vec[TP_frm$ep_well], 
+      Col = ep_wellCol_vec[TP_frm$ep_well], 
+      Ylim_log_su = c(Min_su, Max_su),
+      axis_4 = T,
+      add_median=T, Legend=F, add_snr=F, Title = '')
+   title("abn_cov") 
+
+   with(TP_abn_cov_res_frm,
+   legend("topleft", bty='n', cex=0.8, # title = "Abnormal Coverage",
+   legend = c(
+              paste("Mod. Err =", round(ME, 3)),
+              paste("Res. Err =", round(RE, 3)),
+              paste("beta =", round(slope, 3)),
+              paste("SNR = ", round(SNR, 3))
+           ),
+   ncol = 1)
+   )
+  
+   # Abnormal Content
+   ################################
+   TP_abn_content_res_frm <- plot_metric_vs_input_f(
+      TP_frm, Metric="abn_content", 
+      Pch = ep_wellPch_vec[TP_frm$ep_well], 
+      Col = ep_wellCol_vec[TP_frm$ep_well], 
+      Ylim_log_su = c(Min_su, Max_su),
+      axis_4 = T,
+      add_median=T, Legend=F, add_snr=F, Title = '')
+   title("abn_content")
+ 
+   with(TP_abn_content_res_frm,
+   legend("topleft", bty='n',  cex=0.8, # title = "Abnormal Content",
+   legend = c(
+              paste("Mod. Err =", round(ME, 3)),
+              paste("Res. Err =", round(RE, 3)),
+              paste("beta =", round(slope, 3)),
+              paste("SNR = ", round(SNR, 3))
+           ),
+   ncol = 1)
+   )
+
+   # TMeP_CR
+   ################################
+   TP_frm %<>%
+   dplyr::mutate(TMeK = 10 * TMeP_CR)
+
+   TP_tmep_res_frm <- plot_metric_vs_input_f(
+      TP_frm, Metric="TMeK", 
+      Pch = ep_wellPch_vec[TP_frm$ep_well], 
+      Col = ep_wellCol_vec[TP_frm$ep_well], 
+      Ylim_log_su = c(Min_su, Max_su),
+      axis_4 = T,
+      add_median=T, Legend=F, add_snr=F, Title = '')
+   title("TMeF_CR x 1000")
+
+   with(TP_tmep_res_frm, 
+   legend("topleft", bty='n',  cex=0.8, # title = "TMeP_CR",
+   legend = c(
+              paste("Mod. Err =", round(ME, 3)),
+              paste("Res. Err =", round(RE, 3)),
+              paste("beta =", round(slope, 3)),
+              paste("SNR = ", round(SNR, 3))
+           ),
+   ncol = 1)
+   )
+
+   mtext(side=1, outer = T, "Input Amount")
+   mtext(side=2, outer = T, line= 1, "Coverage in the usual units")
+   mtext(side=4, outer = T, "Coverage in standard units")
+   
+   cat("<br/>\n")  
+   cat("<br/>\n")  
+
+
+}#for(JJ
+
+```
+
+<br/>
+<br/>
+
+
+# Examine ddPCR Data {#exam-ddpcr-data .tabset}
+
+* Going to the ddPCR data instead of the merged file used up to here.
+
+<br/>
+<br/>
+
+## Read ddPCR Data {-}
+
+<br/>
+<br/>
+
+* pos vs tot
+
+<br/>
+<br/>
+
+## LW Plots {-}
+
+```{r ARC-m1a-lw-plots, fig.height=6, fig.width=8, fig.cap ='', eval=F}
+library(readr)
+library(tidyverse)
+library(ggpubr)
+library(ggplot2)
+library(hrbrthemes)
+
+###20241028 B012-B013 titration
+
+ddpcr_seq <- read_csv("/Users/lwang/Documents/R/ContaQC/20241017_metadata_conta_ddpcr_seq - data w B002new.csv")
+view(ddpcr_seq)
+
+df01 <- filter(ddpcr_seq, on_binary_target_coverage_stats_mean >50 & Accepted_droplets > 10000)
+df02 <- filter(df01, !is.na(cf_seq))
+df03 <- filter(df02,!is.na(Ratio))
+titration_df <- subset(df03, Test =="titration")
+
+ggplot(titration_df, aes(x=Ratio, y=cf_seq, col=ExtConsol), size = 5, alpha = 0.5) +
+  geom_point(alpha = 0.5, size = 3) +
+  geom_smooth(method=lm, level=0.95, size = 1.2, aes()) + 
+  scale_x_continuous(trans='log10')+
+  scale_y_continuous(trans='log10')+
+  geom_abline(linetype = "dashed", size = 0.3) +
+  geom_hline(yintercept = 1.0e-03, col = "blue", size = 0.3)+
+  stat_regline_equation(label.x= -2.25, label.y= -0.015, col = "blue", size = 3.5) +
+  stat_cor(aes(label=..rr.label..),label.x=-2.25, label.y= -0.25, col = "blue", size = 3.5) +
+  labs(title = "Concordance: YRS/HBB ratio vs. cf_seq", subtitle =
+         "- NA24631 titrated in NA12878; cf_seq cutoff 1.0e-03 in blue line") +
+  theme_bw()+ theme(legend.position = "bottom")
+
+ggplot(data = titration_df, aes(x=Sample_name, y = cf_seq)) + geom_boxplot(aes(col=pctMale))+
+  geom_jitter(aes(col=pctMale),width=0.15, size = 2, alpha = 0.3) +
+  coord_cartesian(ylim = c(1.0e-06, 1)) +
+  scale_y_continuous(trans='log10')+
+  geom_hline(yintercept = 1.0e-03, col = "black", size = 0.3, linetype = "dashed")+
+  labs(title = "NA24631 titrated in NA12878 - cf_seq", subtitle =
+         "(cf cutoff 1.0e-03 in dashed line)") +
+  theme_ipsum() + theme_bw() + theme(axis.text.x=element_text(angle=45,hjust=1,size=10))
+
+```
+
+
+
+<br/>
+<br/>
+
+
+
+```{r ARC-m1a-plot-2-dorazio-dilution, cache=T, cache.vars='', fig.height= 6, fig.width = 8, fig.cap ="Dorazio Dilution Data"}
+
+par(mar=par("mar") + c(0, 0 , 0, 4))
+
+with(dorazio_dilution_frm,
+plot(x = log(dd_tot), y = log(dd_pos),  log='',
+     col = concFCol_vec[concF],
+     pch = repPch_vec[rep],
+    xaxt = 'n', yaxt = 'n', xlab='dd_tot', ylab='dd_pos' )
+)
+with(dorazio_dilution_frm,
+{
+axis(side=1, at = pretty(log(dd_tot)), label = round(exp( pretty(log(dd_tot))), 0))
+axis(side=2, at = pretty(log(dd_pos)), label = round(exp( pretty(log(dd_pos))), 0))
+})
+
+concF_dil_frm_lst <- split(dorazio_dilution_frm, dorazio_dilution_frm$concF)
+concF_dil_lm_lst <- lapply(concF_dil_frm_lst, function(frm)
+  lm(log(dd_pos) ~  log(dd_tot), data = frm))
+
+
+for(CC in names(concF_dil_lm_lst)) {
+  dil_lm <- concF_dil_lm_lst[[CC]]
+  abline(dil_lm, col = concFCol_vec[CC])
+}
+
+slopes_vec <- sapply(concF_dil_lm_lst, function(LM) coefficients(LM)[[2]])
+
+old_par =  par(xpd = NA)
+
+legend('topright', inset = c(-.2, 0), title = "ConcF - slope",
+legend = paste0(names(slopes_vec), '=', round(slopes_vec, 1)),
+text.col = concFCol_vec[names(slopes_vec)], bty='n')
+
+par(old_par)
+
+title("Dilution Data from Dorazio et al. (2015) ")
+
+```
+
+<p><p/>
+<span style="color: brown">
+* For the binomial distributiuon to be mathematically correct, ...
+Confluence page.)  </span>
+
+
+* Note that the CF is mostly a function of the "adjacent" samples. It is
+the proportion of adjacent SNP cites finding their way into the contaminated
+sample.
+   - these values will not be independent between samples in the same run.
+
+<p><p/>
+* Stochasticity:
+   - We are examining **all of the molecules** in the sample which
+overlap with ContaV3 variants.
+   - We can classify each unique molecule  as contaminant or not.
+   - The unknown is the level of contamination in the entirety of the
+sample.  
+   - The current approach assumes that the ContaV3 variants are a random
+sample of all variants so that we can use proportions computed on the
+ContaV3 variants as estimates of proportions of all variants.
+      - this is a convenient assumption which requires validation
+
+<br/>
+
+* [ Conta V3: MCED-I Contamination Detection](https://docs.google.com/presentation/d/1Hr0XL50yPqQ0d1PsV19gig0IHL-MXXAs5vSCtqU2EYo/edit#slide=id.g112ab0dabe1_0_35)
+
+   -   Relies on coverage across 1000 ultra low noise target regions: 
+      -  500 pairs of SNPs close to each other
+      -  500 long indels in high-complexity sequence context
+   -  Theoretical LoD ~2.4 x 10-5, assuming:
+      - Aggregate coverage ~500,000
+      - Half of markers are homozygous in destination sample
+      - Half of contamination fragments will have opposite haplotype
+   - One observed event → contamination is certain (factor of 3 for 95% CI)
+   - Key learnings from Doppler Conta assessment (same conta probes/targets)
+      - Due to (1) lower than expected aggregate coverage (likely due to lower GC content among conta targets) & (2) conservative filtering → theoretical LoD ~8 x 10-5
+      - **Empirical LoD estimate observed in titration experiment** is consistent with
+theoretical LoD
+
+
+```{r ARC-m1a-define-plot-fun, cache=T, cache.vars=c("plot_cov_by_batch_f")}
+ ############################################
+DEBUG <- function() {
+
+   Metric = "bin_cov"
+   Title =  "bin_cov"
+   Ylim = c(2, 250)
+
+  data_frm = v3a_burn_in_frm %>% 
+   dplyr::filter(!is.na(abn_cov), !is.na(bin_cov)) %>%
+   dplyr::filter(sample_type == "STUDY")   %>%
+   dplyr::mutate(abn_cov = pmax(abn_pos_q05, abn_cov))
+
+   Metric = "abn_cov"
+   Title =  "abn_cov"
+   Ylim = c(0.001, 2)
+   Xaxis = T
+   LvlLegend=T
+ addControls=F
+annotLegend = F
+
+addCancerNotDetected=F
+
+ annotCol = "Plate_24"; annotPch = "sample"
+}#DEBUG
+
+
+
+plot_cov_by_batch_f <- function(data_frm, Metric, Title ='',  
+  Ylim = NULL, Xaxis = F, 
+  annotLegend = F, annotCol = "Plate_24", annotPch = "sample",
+  CtlLegend = F, LvlLegend = F, addControls = T, addCancerNotDetected=F) {
+
+  data_frm[, "metric"] <- data_frm[, Metric]
+  data_frm[, "annotCol"] <- data_frm[, annotCol]
+  data_frm[, "annotPch"] <- data_frm[, annotPch]
+
+  split(metric, sub("FC_", '', sub("CCB_", '', sub("ECB_", '',
+  paste0(flowcell_no, ':', CCB_no, ':', ECB_no)))))
+  
+
+  annotCol_by_ECB_lst <- with(data_frm,
+  split(annotCol, sub("FC_", '', sub("CCB_", '', sub("ECB_", '',
+  paste0(flowcell_no, ':', CCB_no, ':', ECB_no)))))
+  )
+
+  annotPch_by_batch_lst <- with(data_frm,
+  split(annotPch, sub("FC_", '', sub("CCB_", '', sub("ECB_", '',
+  paste0(flowcell_no, ':', CCB_no, ':', ECB_no)))))
+  )
+
+
+  FC_vec <- sapply(strsplit(names(metric_by_batch_lst), split=':'),'[', 1)
+  CCB_vec <- sapply(strsplit(names(metric_by_batch_lst), split=':'),'[', 2)
+  ECB_vec <- sapply(strsplit(names(metric_by_batch_lst), split=':'),'[', 3)
+  
+  FC_ndx <- match(unique(FC_vec), FC_vec)
+  CCB_ndx <- match(unique(CCB_vec), CCB_vec)
+  ECB_ndx <- match(unique(ECB_vec), ECB_vec)
+
+   # annotCol
+  annotColLegend_vec <- sort(unique(data_frm$annotCol))
+  annotCol_vec <- col_vector[1:length(annotColLegend_vec)]
+  names(annotCol_vec) <- annotColLegend_vec
+
+   # annotPch
+  annotPchLegend_vec <- sort(unique(data_frm$annotPch))
+  annotPch_vec <- Pch_v[1:length(annotPchLegend_vec)]
+  names(annotPch_vec) <- annotPchLegend_vec
+
+  annotPch_vec <- ifelse(annotPch_vec == 8, 13, annotPch_vec)
+  annotPch_vec <- ifelse(annotPch_vec == 11, 14, annotPch_vec)
+
+  boxplot(metric_by_batch_lst, las=2, xaxt='n', log='y',  ### ylim=Ylim,
+          border=1, col = 0,   # do print the box; a mixture  is ok for bin cov
+          staplewex = 0,       # remove horizontal whisker lines
+          outline = F,         # remove outlying points
+          whisklty = 0,        # remove vertical whisker lines
+          staplecol = "white", # just to be totally sure :)
+          whiskcol = "white"   # dito)
+    )
+  x_jit_lst <- lapply(metric_by_batch_lst, function(x) jitter(rep(0, length(x)), amount=0.20))
+
+  title(Title)
+  #abline(h = QCM_THRESHOLD["bin_cov"], col='blue')
+  abline(v = FC_ndx[-1]-.5, col='grey', lty = 1, lwd=2)
+  abline(v = CCB_ndx[-1]-.5, col='grey', lty = 3, lwd=2)
+  
+  for(JJ in seq_along(metric_by_batch_lst))
+  points(x = x_jit_lst[[JJ]] + JJ,
+         y = metric_by_batch_lst[[JJ]],
+         pch = annotPch_vec[annotPch_by_batch_lst[[JJ]]],
+         col = annotCol_vec[annotCol_by_batch_lst[[JJ]]]
+  )
+  
+    # Add controls
+  if(addControls)
+  for(JJ in seq_along(metric_by_batch_lst))
+  points(x = JJ + x_jit_lst[[JJ]],
+         y = metric_by_batch_lst[[JJ]],
+         pch = controlPch_vec[sampSub_by_batch_lst[[JJ]]],
+         col = controlCol_vec[sampSub_by_batch_lst[[JJ]]],
+         cex = 0.5
+  )
+  
+  
+  
+   if(Xaxis) {
+old_par =  par(xpd = NA)
+     axis(side=1, at = c(-1, ECB_ndx), line = -1, tick=F,
+          labels=c("ECB", unique(ECB_vec)), 
+          las = 1, cex.axis = 0.8)
+     axis(side=1, at = c(-2, CCB_ndx), line = 0, tick=F,
+          labels=c("CCB", unique(CCB_vec)), 
+          las = 1, cex.axis = 0.8)
+     axis(side=1, at = c(-2, FC_ndx), line = 1, tick=F,
+          labels=c("FC", unique(FC_vec)), 
+          las = 1, cex.axis = 0.8)
+     mtext(side=1, line=2.75, "FC : CCB : ECB")
+par(old_par)
+   }
+
+   if(CtlLegend){
+old_par =  par(xpd = NA)
+   legend("topright", inset=c(-.15, 0), title="Controls",
+   legend = substring(names(controlCol_vec), 1, 3),
+   pch = controlPch_vec, col = controlCol_vec, bty='n'
+   )
+par(old_par)
+  }
+   if(annotLegend){
+old_par =  par(xpd = NA)
+   legend("topright", inset=c(-.15, 0), 
+   legend = names(annotCol_vec),
+   pch = annotPch_vec, 
+   col = annotCol_vec, bty='n'
+   )
+par(old_par)
+  }
+
+  return(invisible(metric_by_batch_lst))
+}# plot_cov_by_batch_f
+
+``` 
+
+
+```{r , eval=T}
+pander::pander(sessionInfo())
+```
+
+  * WRKDIR = `r normalizePath(WRKDIR)`
+  * FN = `r FN`
+  * Scripts = Scripts
+  * RUN DATE = `r date()`
+
+```{r , echo=FALSE}
+  knit_exit()
+```
+
+<p><p/>
+* The first approach explored is to simply look for correlation between
+an index of contamination produced by ddPCR with the index of contamination
+obtained from the sequencing data, contam.
+   - once we have an index of contamination derived from the
+ddPR platform, it can be calibrated to the seq platform
+contamination index.
+      - it would be good to understand how conta is calibrated
+and how it performs.
+      - it would also be good to understand the ddPCR plaform's
+performance profile.
+
+<!--
+<p><p/>
+* On both platforms, we want to know what fraction of the captured abnormal
+fragments are contamitant.  This quantity cannot be computed as we can't 
+readily distinguish between native and contaminating abnormal fragments.
+-->
+
+<br/>
+<br/>
+
+
+* In this section, we use a standard regression analysis approach to summarize 
+the cell line titration data series in a way that should be telling of the
+state of operation of the sample processing pipeline.  
+
+<p><p/>
+* In the next section we describe a regression approach to
+characterizing the salient features of a titration series dataset which
+
+
+# Glossary {#glossary}
+
+## Collaboration
+
+> the action of working with someone to produce or create something.
+
+* In a collaboration greater success can be achieved than in independent
+work, if the collaboration is done correctly.  Collaborations between
+scientists and statisticians can be especially fruitful, if they are
+done correctly.  
+
+* A scientist working independently on a problem, only to consult a statistician
+After finding a solution (at least in their mind),
+is not a collaboration in any sense of that word, and no statistician would
+be able to provide useful advice without retracing the scientist's steps
+back to the point when the problem was conceptualized. 
+
+ ################################
+ ################################
+
+are expected to reflect the state of the processing system and the quality of
+the geneated data.
+
+* We then apply the approach to 4 randomly selected plates using 4 meeasures of coverage:
+   - binary coverage
+   - abnormal coverage
+   - abnormal content = abn cov/bin cov
+   - TMeP_CR = TMeF_CR * 100
+
+<p><p/>
+* The results here are consistent with previous findings:
+   - TMeP_CR values are propportional to the input amount of cancer cfDNA,
+in accordance to a simple model that assumes that in a well 
+functioning system - ie. in the absence of high impact event (missing reagent) which could shock the 
+system or a sustained disturbance (suboptimal reagents or conditions) preventing homoeostasis -
+the yield of captured targets coming from the diluted sample should be reduced proportionally.
+   - Amomng the metrics examined, the pattern in the TMeP_CR values is closest to what is predicted by 
+such a model, followed by abnormal content, and abnormal coverage.
+   - The pattern predicted by the simple model does not fit binary coverage data very well.
+
+<p><p/>
+* In section \@ref(process-all-burn-in) we analyze all of the test plates in the burn-in
+dataset and tabulate the results.
+
+<p><p/>
+* In the last section, the same analyses are performed on the previous dataset with test plates.
+
+
+
+<!-- To run
+# nohup Rscript -e "knitr::knit2html('_M1A-cf_ddPCR_seq.Rmd')" > _M1A-cf_ddPCR_seq.log  &
+
+# Or
+# nohup Rscript -e "rmarkdown::render('_M1A-cf_ddPCR_seq.Rmd')" > _M1A-cf_ddPCR_seq.log  &
+

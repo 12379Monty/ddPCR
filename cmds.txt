@@ -1,0 +1,31 @@
+# See https://github.com/rstudio/bookdown-demo
+# for an example and to troubleshoot
+
+# https://bookdown.org/yihui/rmarkdown/bookdown-start.html#fnref12
+# Alternatively _ will create a skeleton project in your current working directory
+bookdown:::bookdown_skeleton(getwd())
+
+bookdown::render_book('index.Rmd', "bookdown::pdf_document2", new_session = T)
+
+bookdown::clean_book()
+
+bookdown::render_book("index.Rmd")
+
+bookdown::serve_book()
+
+###############################
+# to publish un rsconnect from adhoc R
+getwd()
+setwd("Projects/Papers/breimansworld/")
+
+bookdown::render_book("index.Rmd")
+
+setwd("_book")
+rsconnect::deployApp()
+
+
+
+setwd("..")
+bookdown ...
+
+

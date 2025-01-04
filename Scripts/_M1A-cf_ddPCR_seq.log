@@ -1,0 +1,63 @@
+
+
+processing file: _M1A-cf_ddPCR_seq.Rmd
+1/69                                     
+2/69 [setup]                             
+3/69                                     
+4/69 [m1a-GlobalOptions]                 
+5/69                                     
+6/69 [m1a-Prelims]                       
+7/69                                     
+8/69 [m1a-utilityFns]                    
+9/69                                     
+10/69 [set-params]                        
+11/69                                     
+12/69 [m1a-input-params-all]              
+13/69                                     
+14/69 [m1a-Quan-2018-fig-3]               
+15/69                                     
+16/69 [m1a-Basu-2017-fig3]                
+17/69                                     
+18/69 [m1a-Basu-2017-fig4]                
+19/69                                     
+20/69 [m1a-no-vol-var-conc-0p1-example]   
+21/69                                     
+22/69 [m1a-no-vol-var-conc-0p1-run-sim]   
+23/69                                     
+24/69 [m1a-no-vol-var-conc-0p1-plot-sim]  
+25/69                                     
+26/69 [m1a-no-vol-var-conc-0p001-example] 
+27/69                                     
+28/69 [m1a-no-vol-var-conc-0p001-run-sim] 
+29/69                                     
+30/69 [m1a-no-vol-var-conc-0p001-plot-sim]
+31/69                                     
+32/69 [m1a-rd-dorazio-dilution-data]      
+33/69                                     
+34/69 [m1a-annot-dorazio]                 
+35/69                                     
+36/69 [m1a-plot-dorazio-dilution]         
+37/69                                     
+38/69 [m1a-plot-ddpcr-seq-counts]         
+39/69                                     
+40/69 [m1a-rereplot-dorazio-dilution]     
+41/69                                     
+42/69 [m1a-dorazio-dilution-glm-fit]      
+43/69                                     
+44/69 [m1a-cloglog-residuals]             
+45/69                                     
+46/69 [m1a-rule-of-ln-alpha-over-n]       
+47/69                                     
+48/69 [m1a-Pinheiro-2012-fig1]            
+49/69                                     
+50/69 [m1a-Pinheiro-2012-fig2]            
+51/69                                     
+52/69 [unnamed-chunk-1]                   
+53/69                                     
+54/69 [unnamed-chunk-2]                   
+output file: _M1A-cf_ddPCR_seq.knit.md
+
+/usr/local/bin/pandoc +RTS -K512m -RTS _M1A-cf_ddPCR_seq.knit.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output _M1A-cf_ddPCR_seq.html --lua-filter /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/bookdown/rmarkdown/lua/custom-environment.lua --lua-filter /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/rmarkdown/rmarkdown/lua/pagebreak.lua --lua-filter /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/rmarkdown/rmarkdown/lua/latex-div.lua --self-contained --wrap preserve --variable bs3=TRUE --section-divs --table-of-contents --toc-depth 2 --template /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --number-sections --variable theme=bootstrap --mathjax --variable 'mathjax-url=https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML' --include-in-header /var/folders/jk/d24lm6n944q5y650lph85m7w0000gp/T//RtmpMzixM9/rmarkdown-str272d3d7540ff.html --variable code_folding=hide --variable source_embed=_M1A-cf_ddPCR_seq.Rmd --include-after-body /var/folders/jk/d24lm6n944q5y650lph85m7w0000gp/T//RtmpMzixM9/file272d5cfe44de.html --variable code_menu=1 --citeproc 
+[WARNING] Citeproc: citation dMIQE:2020ab not found
+
+Output created: _M1A-cf_ddPCR_seq.html

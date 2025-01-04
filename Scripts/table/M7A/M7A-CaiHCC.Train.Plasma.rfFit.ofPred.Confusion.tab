@@ -1,0 +1,6 @@
+""	"Benign"	"CHB"	"Cirrhosis"	"HCC"	"Healthy"
+"Benign"	77	39	5	24	51
+"CHB"	18	21	3	5	7
+"Cirrhosis"	0	1	5	0	1
+"HCC"	28	51	40	201	35
+"Healthy"	80	40	6	38	122

@@ -1,0 +1,21 @@
+```{r plotlyRtsnePCsAllSamples, results="asis", fig.cap='Rtsne plot - AllSamples - nPC=25'}
+ #suppressPackageStartupMessages(require(plotly))
+ suppressPackageStartupMessages(require(scatterD3))
+
+ totalCount.vec <- colSums(DD.Set.dgel$counts)/1e6
+ DD.Set.dgel$samples$lowCov <- totalCount.vec < 4
+ DD.Set.dgel$samples$totCount <- totalCount.vec
+
+ scatterD3(x = DD.Set.nPC.25.Rtsne.frm$V1, y = DD.Set.nPC.25.Rtsne.frm$V2, data=NULL,
+ tooltip_text = with(DD.Set.dgel$samples,
+       paste0(Title,  ' <br> ', TrainValGroup, ' <br> ', Dx, ' <br> ', totCount)),
+ #symbol_var=AllSamples.diseaseTT.vec,
+ symbol_var=DD.Set.dgel$samples$Dx,
+ symbol_lab="Dx",
+ col_var=DD.Set.dgel$samples$TrainValGroup,
+ col_lab="TrainValGroup",
+
+ width=800, height=600,
+ caption="Rtsne plot - AllSamples - nPC=25")
+
+```
